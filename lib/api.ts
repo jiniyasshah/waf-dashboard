@@ -1,3 +1,5 @@
+// type: uploaded file
+// fileName: jiniyasshah/waf-dashboard/waf-dashboard-3d3ff54413aa7754cad00fa3dda51b4dfb53a2e7/lib/api.ts
 import { toast } from "sonner";
 
 import type {
@@ -30,65 +32,87 @@ export function getApiUrl(): string {
   return API_URL;
 }
 
-// Generic API call handler with error handling
+interface ApiCallOptions extends RequestInit {
+  suppressErrorToast?: boolean;
+}
+
+// Generic API call handler with improved error handling
 async function apiCall<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiCallOptions = {}
 ): Promise<T | null> {
   if (!API_URL) {
-    toast.error(
-      "API URL not configured.  Please set NEXT_PUBLIC_API_URL in . env. local"
-    );
+    if (!options.suppressErrorToast) {
+      toast.error(
+        "API URL not configured. Please set NEXT_PUBLIC_API_URL in .env.local"
+      );
+    }
     return null;
   }
 
+  const { suppressErrorToast, ...fetchOptions } = options;
+
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
+      ...fetchOptions,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...options.headers,
+        ...fetchOptions.headers,
       },
     });
 
-    // 401 is expected when checking auth without a session
-    if (response.status === 401) {
+    if (response.status === 401 && endpoint === "/api/auth/check") {
       return null;
     }
 
-    // Try to parse JSON regardless of status code
-    let data: T | null = null;
+    let data: any = null;
     const contentType = response.headers.get("content-type");
+    let textBody = "";
 
-    if (contentType && contentType.includes("application/json")) {
-      data = await response.json();
-    } else {
-      try {
-        const text = await response.text();
-        if (text) {
-          data = JSON.parse(text);
-        }
-      } catch {
-        // Not valid JSON
+    // 1. Attempt to read and parse the body
+    try {
+      textBody = await response.text();
+      const trimmed = textBody.trim();
+
+      // FIXED: Now checks for both Object '{' and Array '['
+      if (
+        textBody &&
+        (contentType?.includes("application/json") ||
+          trimmed.startsWith("{") ||
+          trimmed.startsWith("["))
+      ) {
+        data = JSON.parse(textBody);
       }
+    } catch {
+      // JSON parse failed, but we still have 'textBody'
     }
 
+    // 2. Handle Errors (Non-2xx Status)
     if (!response.ok) {
+      let errorMessage = `HTTP Error ${response.status}`;
+
       if (data && typeof data === "object") {
-        const hasMessage =
-          "message" in data || "status" in data || "error" in data;
-        if (hasMessage) {
-          return data;
-        }
+        errorMessage =
+          data.message || data.error || data.details || errorMessage;
+      } else if (textBody) {
+        errorMessage = textBody.trim();
       }
-      throw new Error(`HTTP ${response.status}`);
+
+      if (!suppressErrorToast) {
+        toast.error(errorMessage);
+      }
+
+      return null;
     }
 
-    return data;
+    // 3. Handle Success
+    return data as T;
   } catch (error) {
-    console.error("API call failed:", error);
-    toast.error("Something went wrong. Please try again.");
+    console.error(`API call failed for ${endpoint}:`, error);
+    if (!suppressErrorToast) {
+      toast.error("Network error. Please try again.");
+    }
     return null;
   }
 }
@@ -111,7 +135,9 @@ export async function login(data: LoginRequest): Promise<AuthResponse | null> {
 }
 
 export async function checkAuth(): Promise<AuthCheckResponse | null> {
-  return apiCall<AuthCheckResponse>("/api/auth/check");
+  return apiCall<AuthCheckResponse>("/api/auth/check", {
+    suppressErrorToast: true,
+  });
 }
 
 export async function logout(): Promise<void> {
@@ -163,12 +189,26 @@ export async function addDNSRecord(
 
 export async function deleteDNSRecord(
   domainId: string,
-  recordId: number
+  recordId: string
 ): Promise<any | null> {
   return apiCall(
     `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
     {
       method: "DELETE",
+    }
+  );
+}
+
+export async function toggleDNSRecordProxy(
+  domainId: string,
+  recordId: string,
+  proxied: boolean
+): Promise<any | null> {
+  return apiCall(
+    `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ proxied }),
     }
   );
 }
@@ -198,7 +238,7 @@ export async function addCustomRule(
 }
 
 export async function deleteCustomRule(ruleId: string): Promise<any | null> {
-  return apiCall(`/api/rules/custom/delete? id=${ruleId}`, {
+  return apiCall(`/api/rules/custom/delete?id=${ruleId}`, {
     method: "DELETE",
   });
 }

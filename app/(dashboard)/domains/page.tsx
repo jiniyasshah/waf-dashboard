@@ -21,6 +21,7 @@ import {
   getDNSRecords,
   addDNSRecord,
   deleteDNSRecord,
+  toggleDNSRecordProxy,
 } from "@/lib/api";
 import { Domain, DNSRecord } from "@/types";
 import { toast } from "sonner";
@@ -35,8 +36,19 @@ import {
   Shield,
   ShieldOff,
   X,
+  Cloud,
+  CloudLightning,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+
+// Regex Patterns for Validation
+const IPV4_REGEX =
+  /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+const IPV6_REGEX =
+  /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+// ✅ Correct (JavaScript syntax)
+const DOMAIN_REGEX =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
 
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -59,6 +71,7 @@ export default function DomainsPage() {
     type: "A",
     content: "",
     proxied: true,
+    ttl: 300, // Added TTL default
   });
   const [isAddingRecord, setIsAddingRecord] = useState(false);
 
@@ -77,6 +90,17 @@ export default function DomainsPage() {
 
   const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // [VALIDATION] Domain Name
+    if (!newDomainName) {
+      toast.error("Domain name is required");
+      return;
+    }
+    if (!DOMAIN_REGEX.test(newDomainName)) {
+      toast.error("Invalid domain name format (e.g., example.com)");
+      return;
+    }
+
     setIsAdding(true);
 
     const result = await addDomain({ name: newDomainName });
@@ -120,15 +144,101 @@ export default function DomainsPage() {
     }
   };
 
+  // Handle Proxy Toggle
+  const handleToggleProxy = async (domainId: string, record: DNSRecord) => {
+    // Optimistic update
+    const previousRecords = dnsRecords[domainId];
+    const newProxiedState = !record.proxied;
+
+    setDnsRecords((prev) => ({
+      ...prev,
+      [domainId]: prev[domainId].map((r) =>
+        r.id === record.id ? { ...r, proxied: newProxiedState } : r
+      ),
+    }));
+
+    const result = await toggleDNSRecordProxy(
+      domainId,
+      record.id,
+      newProxiedState
+    );
+
+    if (result && result.status === "success") {
+      toast.success(
+        `Proxy status updated to ${newProxiedState ? "Enabled" : "Disabled"}`
+      );
+    } else {
+      // Revert on failure
+      toast.error("Failed to update proxy status");
+      setDnsRecords((prev) => ({ ...prev, [domainId]: previousRecords }));
+    }
+  };
+
   const openAddRecordModal = (domain: Domain) => {
     setSelectedDomainForRecord(domain);
-    setNewRecord({ name: "", type: "A", content: "", proxied: true });
+    setNewRecord({ name: "", type: "A", content: "", proxied: true, ttl: 300 });
     setShowAddRecordModal(true);
   };
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDomainForRecord) return;
+
+    // --- [START] INPUT VALIDATION LOGIC ---
+
+    // 1. Name Validation
+    if (!newRecord.name) {
+      toast.error("Record name is required (use @ for root)");
+      return;
+    }
+    // Allow @, alphanumeric, hyphens
+    if (newRecord.name !== "@" && !/^[a-zA-Z0-9-.*]+$/.test(newRecord.name)) {
+      toast.error("Name contains invalid characters");
+      return;
+    }
+
+    // 2. Content Validation based on Type
+    const content = newRecord.content.trim();
+    if (!content) {
+      toast.error("Content is required");
+      return;
+    }
+
+    switch (newRecord.type) {
+      case "A":
+        if (!IPV4_REGEX.test(content)) {
+          toast.error("Invalid IPv4 address (e.g., 1.2.3.4)");
+          return;
+        }
+        break;
+      case "AAAA":
+        if (!IPV6_REGEX.test(content)) {
+          toast.error("Invalid IPv6 address");
+          return;
+        }
+        break;
+      case "CNAME":
+      case "MX":
+      case "NS":
+        if (IPV4_REGEX.test(content) || IPV6_REGEX.test(content)) {
+          toast.error(
+            `${newRecord.type} record must be a domain name, not an IP address`
+          );
+          return;
+        }
+        if (!DOMAIN_REGEX.test(content)) {
+          toast.error("Invalid domain format in content");
+          return;
+        }
+        break;
+      case "TXT":
+        if (content.length > 2048) {
+          toast.error("TXT record is too long");
+          return;
+        }
+        break;
+    }
+    // --- [END] INPUT VALIDATION LOGIC ---
 
     setIsAddingRecord(true);
 
@@ -138,6 +248,7 @@ export default function DomainsPage() {
       type: newRecord.type,
       content: newRecord.content,
       proxied: newRecord.proxied,
+      ttl: newRecord.ttl,
     });
 
     if (result && result.status === "success") {
@@ -153,7 +264,13 @@ export default function DomainsPage() {
       }
 
       setShowAddRecordModal(false);
-      setNewRecord({ name: "", type: "A", content: "", proxied: true });
+      setNewRecord({
+        name: "",
+        type: "A",
+        content: "",
+        proxied: true,
+        ttl: 300,
+      });
     } else if (result && result.message) {
       toast.error(result.message);
     }
@@ -161,7 +278,7 @@ export default function DomainsPage() {
     setIsAddingRecord(false);
   };
 
-  const handleDeleteRecord = async (domainId: string, recordId: number) => {
+  const handleDeleteRecord = async (domainId: string, recordId: string) => {
     const result = await deleteDNSRecord(domainId, recordId);
 
     if (result && result.status === "success") {
@@ -315,6 +432,7 @@ export default function DomainsPage() {
                         <SelectItem value="CNAME">CNAME</SelectItem>
                         <SelectItem value="MX">MX</SelectItem>
                         <SelectItem value="TXT">TXT</SelectItem>
+                        <SelectItem value="NS">NS</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -328,7 +446,7 @@ export default function DomainsPage() {
                       newRecord.type === "A"
                         ? "1.2.3.4"
                         : newRecord.type === "CNAME"
-                        ? "target. example.com"
+                        ? "target.example.com"
                         : "Value"
                     }
                     value={newRecord.content}
@@ -339,13 +457,16 @@ export default function DomainsPage() {
                   />
                 </div>
 
-                {newRecord.type === "A" && (
+                {/* Only show proxy toggle for A, AAAA, CNAME */}
+                {(newRecord.type === "A" ||
+                  newRecord.type === "AAAA" ||
+                  newRecord.type === "CNAME") && (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2">
                       {newRecord.proxied ? (
-                        <Shield className="h-4 w-4 text-orange-500" />
+                        <CloudLightning className="h-4 w-4 text-orange-500" />
                       ) : (
-                        <ShieldOff className="h-4 w-4 text-gray-500" />
+                        <Cloud className="h-4 w-4 text-gray-500" />
                       )}
                       <div>
                         <p className="text-sm font-medium">
@@ -511,23 +632,48 @@ export default function DomainsPage() {
                               >
                                 {record.type}
                               </Badge>
-                              <div>
-                                <p className="font-mono text-sm">
+                              <div className="min-w-[200px]">
+                                <p className="font-mono text-sm font-medium">
                                   {record.name}
                                 </p>
-                                <p className="text-xs text-muted-foreground font-mono">
+                                <p className="text-xs text-muted-foreground font-mono truncate max-w-[250px]">
                                   {record.content}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
+
+                            <div className="flex items-center gap-4">
+                              {/* Proxy Toggle for Supported Types */}
+                              {(record.type === "A" ||
+                                record.type === "AAAA" ||
+                                record.type === "CNAME") && (
+                                <div
+                                  className="flex items-center gap-2"
+                                  title="Toggle Proxy Status"
+                                >
+                                  {record.proxied ? (
+                                    <CloudLightning className="h-4 w-4 text-orange-500" />
+                                  ) : (
+                                    <Cloud className="h-4 w-4 text-gray-500" />
+                                  )}
+                                  <Switch
+                                    checked={record.proxied || false}
+                                    onCheckedChange={() =>
+                                      handleToggleProxy(domain.id, record)
+                                    }
+                                    className="scale-75 data-[state=checked]:bg-orange-500"
+                                  />
+                                </div>
+                              )}
+
+                              <span className="text-xs text-muted-foreground w-16 text-right">
                                 TTL: {record.ttl}
                               </span>
+
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() =>
                                   handleDeleteRecord(domain.id, record.id)
                                 }

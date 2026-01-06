@@ -46,7 +46,7 @@ export interface Domain {
   id: string;
   user_id: string;
   name: string;
-  proxied: boolean;
+  // REMOVED: proxied: boolean;
   nameservers: string[];
   status: "active" | "pending_verification";
   created_at: string;
@@ -64,7 +64,7 @@ export interface VerifyDomainResponse {
 
 // DNS Record types
 export interface DNSRecord {
-  id: number;
+  id: string; // CHANGED: number -> string to match MongoDB ObjectId
   name: string;
   type: string;
   content: string;

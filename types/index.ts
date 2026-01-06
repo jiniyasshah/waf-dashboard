@@ -115,22 +115,36 @@ export interface ToggleRuleRequest {
   enabled: boolean;
 }
 
-// Log types
 export interface AttackLog {
+  _id?: string;
+  timestamp: string;
   ip: string;
-  path: string;
+  request_path: string; // Matches json:"request_path"
   reason: string;
-  action: "Blocked" | "Flagged";
+  action: "Blocked" | "Flagged" | "Monitor";
   source: "Rule Engine" | "ML Engine" | "Hybrid";
   tags: string[];
   score: number;
-  confidence: number;
-  trigger?: string;
-  full_request: {
+  ml_confidence?: number; // Matches json:"ml_confidence"
+  trigger_payload?: string; // Matches json:"trigger_payload"
+  domain_id?: string;
+  request?: {
     method: string;
     url: string;
-    headers: Record<string, string>;
+    // Go headers map to string arrays
+    headers: Record<string, string[]>;
     body: string;
+    proto?: string;
   };
-  timestamp: string;
+}
+
+// Pagination Wrapper
+export interface PaginatedLogsResponse {
+  data: AttackLog[];
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    per_page: number;
+  };
 }

@@ -1,7 +1,7 @@
 // type: uploaded file
 // fileName: jiniyasshah/waf-dashboard/waf-dashboard-3d3ff54413aa7754cad00fa3dda51b4dfb53a2e7/lib/api.ts
 import { toast } from "sonner";
-
+import { PaginatedLogsResponse } from "@/types";
 import type {
   LoginRequest,
   RegisterRequest,
@@ -250,9 +250,15 @@ export async function toggleRule(data: ToggleRuleRequest): Promise<any | null> {
   });
 }
 
-// Logs API calls
-export async function getLogs(): Promise<AttackLog[] | null> {
-  return apiCall<AttackLog[]>("/api/logs/secure");
+export async function getLogs(
+  page: number = 1,
+  limit: number = 20,
+  domainId?: string
+): Promise<PaginatedLogsResponse | null> {
+  const query = `?page=${page}&limit=${limit}${
+    domainId ? `&domain_id=${domainId}` : ""
+  }`;
+  return apiCall<PaginatedLogsResponse>(`/api/logs/secure${query}`);
 }
 
 // SSE for real-time logs

@@ -64,21 +64,25 @@ export interface VerifyDomainResponse {
 
 // DNS Record types
 export interface DNSRecord {
-  id: string; // CHANGED: number -> string to match MongoDB ObjectId
+  id: string;
+  domain_id: string;
   name: string;
   type: string;
   content: string;
   ttl: number;
-  proxied?: boolean;
+  proxied: boolean;
+  origin_ssl?: boolean; // [NEW] Add this field
+  created_at: string;
 }
 
 export interface AddDNSRecordRequest {
   domain_id: string;
-  name: string; // "@" for root, "www", "api", etc.
-  type: string; // "A", "CNAME", "MX", "TXT"
-  content: string; // "1.2.3.4" or target
-  ttl?: number; // Optional, default 300
-  proxied: boolean; // TRUE = Through WAF, FALSE = Direct
+  name: string;
+  type: string;
+  content: string;
+  ttl: number;
+  proxied: boolean;
+  origin_ssl?: boolean; // [NEW] Add this field
 }
 
 // Rule types
@@ -147,4 +151,10 @@ export interface PaginatedLogsResponse {
     total_items: number;
     per_page: number;
   };
+}
+
+export interface ToggleDNSRecordOriginSSLRequest {
+  domain_id: string;
+  record_id: string;
+  origin_ssl: boolean;
 }

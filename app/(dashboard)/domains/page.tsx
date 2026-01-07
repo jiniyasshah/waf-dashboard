@@ -22,6 +22,7 @@ import {
   addDNSRecord,
   deleteDNSRecord,
   toggleDNSRecordProxy,
+  toggleDNSRecordOriginSSL, // [NEW] Import this
 } from "@/lib/api";
 import { Domain, DNSRecord } from "@/types";
 import { toast } from "sonner";
@@ -38,6 +39,8 @@ import {
   X,
   Cloud,
   CloudLightning,
+  Lock, // [NEW] Icon
+  Unlock, // [NEW] Icon
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -171,6 +174,35 @@ export default function DomainsPage() {
       // Revert on failure
       toast.error("Failed to update proxy status");
       setDnsRecords((prev) => ({ ...prev, [domainId]: previousRecords }));
+    }
+  };
+
+  // [NEW] Handle Origin SSL Toggle
+  const handleToggleOriginSSL = async (domainId: string, record: DNSRecord) => {
+    const newStatus = !record.origin_ssl;
+
+    // Optimistic UI Update
+    setDnsRecords((prev) => ({
+      ...prev,
+      [domainId]: prev[domainId].map((r) =>
+        r.id === record.id ? { ...r, origin_ssl: newStatus } : r
+      ),
+    }));
+
+    try {
+      await toggleDNSRecordOriginSSL(domainId, record.id, newStatus);
+      toast.success(
+        `Origin SSL ${newStatus ? "enabled" : "disabled"} for ${record.name}`
+      );
+    } catch (error) {
+      // Revert on failure
+      setDnsRecords((prev) => ({
+        ...prev,
+        [domainId]: prev[domainId].map((r) =>
+          r.id === record.id ? { ...r, origin_ssl: !newStatus } : r
+        ),
+      }));
+      toast.error("Failed to update Origin SSL status");
     }
   };
 
@@ -643,6 +675,29 @@ export default function DomainsPage() {
                             </div>
 
                             <div className="flex items-center gap-4">
+                              {/* [NEW] ORIGIN SSL TOGGLE (HTTP/HTTPS) */}
+                              {(record.type === "A" ||
+                                record.type === "AAAA" ||
+                                record.type === "CNAME") && (
+                                <div
+                                  className="flex items-center gap-2"
+                                  title="Toggle Origin SSL (Secure Backend)"
+                                >
+                                  {record.origin_ssl ? (
+                                    <Lock className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <Unlock className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <Switch
+                                    checked={record.origin_ssl || false}
+                                    onCheckedChange={() =>
+                                      handleToggleOriginSSL(domain.id, record)
+                                    }
+                                    className="scale-75 data-[state=checked]:bg-green-500"
+                                  />
+                                </div>
+                              )}
+
                               {/* Proxy Toggle for Supported Types */}
                               {(record.type === "A" ||
                                 record.type === "AAAA" ||

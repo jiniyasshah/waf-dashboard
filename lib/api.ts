@@ -17,6 +17,7 @@ import type {
   AddCustomRuleRequest,
   ToggleRuleRequest,
   AttackLog,
+  ToggleDNSRecordOriginSSLRequest,
 } from "@/types";
 
 // Get API URL from environment variable
@@ -199,6 +200,7 @@ export async function deleteDNSRecord(
   );
 }
 
+// [UPDATED] Standard Proxy Toggle
 export async function toggleDNSRecordProxy(
   domainId: string,
   recordId: string,
@@ -208,7 +210,28 @@ export async function toggleDNSRecordProxy(
     `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
     {
       method: "PUT",
-      body: JSON.stringify({ proxied }),
+      body: JSON.stringify({
+        action: "toggle_proxy", // Optional (backend defaults to this), but good for clarity
+        proxied: proxied,
+      }),
+    }
+  );
+}
+
+// [NEW] Origin SSL Toggle
+export async function toggleDNSRecordOriginSSL(
+  domainId: string,
+  recordId: string,
+  originSSL: boolean
+): Promise<any | null> {
+  return apiCall(
+    `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        action: "toggle_origin_ssl", // Matches the backend check req.Action == "toggle_origin_ssl"
+        origin_ssl: originSSL,
+      }),
     }
   );
 }

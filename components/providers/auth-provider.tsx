@@ -11,31 +11,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkAuthentication = async () => {
-      setLoading(true);
-      const result = await checkAuth();
-      if (result && result.authenticated && result.user) {
-        setUser(result.user);
-      } else {
-        setUser(null);
-        if (
-          !pathname.startsWith("/login") &&
-          !pathname.startsWith("/register")
-        ) {
-          router.push("/login");
+    const initAuth = async () => {
+      try {
+        setLoading(true);
+        const result = await checkAuth();
+        if (result && result.authenticated && result.user) {
+          setUser(result.user);
+        } else {
+          setUser(null);
         }
+      } catch (error) {
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    checkAuthentication();
-  }, [setUser, setLoading, router, pathname]);
+    initAuth();
+  }, [setUser, setLoading]);
 
-  // Redirect authenticated users away from auth pages
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      if (pathname === "/login" || pathname === "/register") {
+    if (isLoading) return;
+
+    const isAuthPage =
+      pathname.startsWith("/login") || pathname.startsWith("/register");
+
+    if (isAuthenticated) {
+      if (isAuthPage) {
         router.push("/");
+      }
+    } else {
+      if (!isAuthPage) {
+        router.push("/login");
       }
     }
   }, [isLoading, isAuthenticated, pathname, router]);

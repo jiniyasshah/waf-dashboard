@@ -7,23 +7,27 @@ A modern, dark-themed Next.js dashboard for managing an ML-powered Web Applicati
 ## Features
 
 ### 🔐 Authentication
+
 - Clean login and registration pages
 - Secure authentication using HttpOnly cookies
 - Protected routes with automatic redirection
 
 ### 📊 Dashboard Home
+
 - Real-time system status monitoring (Gateway, Database, ML Scorer)
 - Quick statistics (Total Requests, Blocked Threats, Flagged Activity)
 - Live threat feed with SSE (Server-Sent Events)
 - Color-coded threat levels and severity indicators
 
 ### 🌐 Domain Management
+
 - List all protected domains with status badges
 - Add new domains with modal interface
 - Domain verification with nameserver assignment
 - View domain details and DNS records
 
 ### 🛡️ Security Rules
+
 - Two tabs: Global Rules and Custom Rules
 - Toggle switches to enable/disable rules per domain
 - Add custom rules with flexible conditions:
@@ -33,12 +37,14 @@ A modern, dark-themed Next.js dashboard for managing an ML-powered Web Applicati
   - Custom tags for categorization
 
 ### 📝 Attack Logs
+
 - Comprehensive attack log table with expandable rows
 - Columns: Timestamp, IP, Path, Reason, Status, Source, Score, Confidence
 - Full request details view (method, URL, headers, body)
 - Filter capabilities and color-coded severity
 
 ### ⚙️ Settings
+
 - User profile information display
 - API URL configuration with localStorage persistence
 - Secure logout functionality
@@ -69,23 +75,26 @@ A modern, dark-themed Next.js dashboard for managing an ML-powered Web Applicati
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/jiniyasshah/waf-dashboard.git
 cd waf-dashboard
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Run the development server:
+
 ```bash
 npm run dev
 ```
@@ -112,11 +121,12 @@ All requests include `credentials: 'include'` for HttpOnly cookie authentication
 - **Domains**: `/api/domains`, `/api/domains/add`, `/api/domains/verify`
 - **DNS**: `/api/dns/records`
 - **Rules**: `/api/rules/global`, `/api/rules/custom`, `/api/rules/custom/add`, `/api/rules/toggle`
-- **Logs**: `/api/logs/secure`, `/api/stream` (SSE)
+- **Logs**: `/api/logs/secure`, `/api/logs/stream` (SSE)
 
 ## Error Handling
 
 The application implements comprehensive error handling:
+
 - User-friendly error messages (no technical jargon)
 - Toast notifications for feedback
 - Graceful fallbacks when API is unavailable
@@ -153,24 +163,31 @@ waf-dashboard/
 ## Screenshots
 
 ### Login Page
+
 ![Login](https://github.com/user-attachments/assets/12c9f5ac-e030-4c00-9824-5a3abe0297db)
 
 ### Register Page
+
 ![Register](https://github.com/user-attachments/assets/5c76c052-cfdb-498d-947f-02356daecf29)
 
 ### Dashboard with API Configuration
+
 ![Dashboard](https://github.com/user-attachments/assets/3e4e9a21-1a0c-4c99-9b73-b6dd3b26bf4d)
 
 ### Domains Page
+
 ![Domains](https://github.com/user-attachments/assets/1370b035-5e91-4cf7-af3a-72f376ac5e05)
 
 ### Rules Page
+
 ![Rules](https://github.com/user-attachments/assets/d5e726df-64c8-40e9-bd2f-7df9edd4075c)
 
 ### Logs Page
+
 ![Logs](https://github.com/user-attachments/assets/1fe10c19-cc02-4d61-ba49-eb39432b8d42)
 
 ### Settings Page
+
 ![Settings](https://github.com/user-attachments/assets/0e0142c0-db5a-4833-ba26-136a25bd463d)
 
 ## License
@@ -180,3 +197,4 @@ ISC
 ## Author
 
 Created for WAF security operations management.
+# waf_front2

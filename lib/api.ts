@@ -1,5 +1,5 @@
 // type: uploaded file
-// fileName: jiniyasshah/waf-dashboard/waf-dashboard-3d3ff54413aa7754cad00fa3dda51b4dfb53a2e7/lib/api.ts
+// fileName: api.ts
 import { toast } from "sonner";
 import { PaginatedLogsResponse } from "@/types";
 import type {
@@ -37,6 +37,13 @@ interface ApiCallOptions extends RequestInit {
   suppressErrorToast?: boolean;
 }
 
+// Standard Backend Response Wrapper
+interface StandardResponse<T> {
+  status: string;
+  message?: string;
+  data?: T;
+}
+
 // Generic API call handler with improved error handling
 async function apiCall<T>(
   endpoint: string,
@@ -67,7 +74,7 @@ async function apiCall<T>(
       return null;
     }
 
-    let data: any = null;
+    let rawData: any = null;
     const contentType = response.headers.get("content-type");
     let textBody = "";
 
@@ -76,26 +83,26 @@ async function apiCall<T>(
       textBody = await response.text();
       const trimmed = textBody.trim();
 
-      // FIXED: Now checks for both Object '{' and Array '['
       if (
         textBody &&
         (contentType?.includes("application/json") ||
           trimmed.startsWith("{") ||
           trimmed.startsWith("["))
       ) {
-        data = JSON.parse(textBody);
+        rawData = JSON.parse(textBody);
       }
     } catch {
-      // JSON parse failed, but we still have 'textBody'
+      // JSON parse failed
     }
 
-    // 2. Handle Errors (Non-2xx Status)
+    // 2. Handle HTTP Errors (Non-2xx Status)
     if (!response.ok) {
       let errorMessage = `HTTP Error ${response.status}`;
 
-      if (data && typeof data === "object") {
+      if (rawData && typeof rawData === "object") {
+        // Backend now returns { status: "error", message: "..." }
         errorMessage =
-          data.message || data.error || data.details || errorMessage;
+          rawData.message || rawData.error || rawData.details || errorMessage;
       } else if (textBody) {
         errorMessage = textBody.trim();
       }
@@ -107,8 +114,25 @@ async function apiCall<T>(
       return null;
     }
 
-    // 3. Handle Success
-    return data as T;
+    // 3. Handle Success & Unwrap Envelope
+    // Check if it matches the new StandardResponse format: { status: "success", data: ... }
+    if (rawData && rawData.status === "success") {
+      // Case A: Response has 'data' payload (e.g. WriteSuccess)
+      if (rawData.data !== undefined) {
+        return rawData.data as T;
+      }
+      // Case B: Response has only 'message' (e.g. WriteMessage)
+      // We return an object containing the message to satisfy truthy checks in UI
+      if (rawData.message) {
+        return { message: rawData.message } as unknown as T;
+      }
+      // Case C: Empty success (unlikely but possible)
+      return {} as T;
+    }
+
+    // 4. Fallback for endpoints NOT using the wrapper (if any legacy ones remain)
+    // or if the response structure didn't match the expected envelope.
+    return rawData as T;
   } catch (error) {
     console.error(`API call failed for ${endpoint}:`, error);
     if (!suppressErrorToast) {
@@ -147,7 +171,7 @@ export async function logout(): Promise<void> {
 
 // System status
 export async function getSystemStatus(): Promise<SystemStatus | null> {
-  return apiCall<SystemStatus>("/api/status");
+  return apiCall<SystemStatus>("/api/system/status");
 }
 
 // Domain API calls
@@ -200,7 +224,7 @@ export async function deleteDNSRecord(
   );
 }
 
-// [UPDATED] Standard Proxy Toggle
+// Standard Proxy Toggle
 export async function toggleDNSRecordProxy(
   domainId: string,
   recordId: string,
@@ -211,14 +235,14 @@ export async function toggleDNSRecordProxy(
     {
       method: "PUT",
       body: JSON.stringify({
-        action: "toggle_proxy", // Optional (backend defaults to this), but good for clarity
+        action: "toggle_proxy",
         proxied: proxied,
       }),
     }
   );
 }
 
-// [NEW] Origin SSL Toggle
+// Origin SSL Toggle
 export async function toggleDNSRecordOriginSSL(
   domainId: string,
   recordId: string,
@@ -229,7 +253,7 @@ export async function toggleDNSRecordOriginSSL(
     {
       method: "PUT",
       body: JSON.stringify({
-        action: "toggle_origin_ssl", // Matches the backend check req.Action == "toggle_origin_ssl"
+        action: "toggle_origin_ssl",
         origin_ssl: originSSL,
       }),
     }
@@ -269,7 +293,11 @@ export async function deleteCustomRule(ruleId: string): Promise<any | null> {
 export async function toggleRule(data: ToggleRuleRequest): Promise<any | null> {
   return apiCall("/api/rules/toggle", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      rule_id: data.id, // Mapped here
+      domain_id: data.domain_id,
+      enabled: data.enabled,
+    }),
   });
 }
 
@@ -281,7 +309,7 @@ export async function getLogs(
   const query = `?page=${page}&limit=${limit}${
     domainId ? `&domain_id=${domainId}` : ""
   }`;
-  return apiCall<PaginatedLogsResponse>(`/api/logs/secure${query}`);
+  return apiCall<PaginatedLogsResponse>(`/api/logs${query}`);
 }
 
 // SSE for real-time logs
@@ -294,7 +322,7 @@ export function createLogStream(
   }
 
   try {
-    const eventSource = new EventSource(`${API_URL}/api/stream`, {
+    const eventSource = new EventSource(`${API_URL}/api/logs/stream`, {
       withCredentials: true,
     });
 

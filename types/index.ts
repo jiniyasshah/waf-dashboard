@@ -1,3 +1,6 @@
+// type: uploaded file
+// fileName: types/index.ts
+
 // User types
 export interface User {
   id: string;
@@ -17,6 +20,7 @@ export interface RegisterRequest {
   password: string;
 }
 
+// Matches backend payload in data field
 export interface AuthResponse {
   message: string;
   user?: User;
@@ -41,14 +45,21 @@ export interface SystemStatus {
   ml_scorer: ServiceStatus;
 }
 
+// [UPDATED] Stats Interface
+export interface DomainStats {
+  total_requests: number;
+  flagged_requests: number;
+  blocked_requests: number;
+}
+
 // Domain types
 export interface Domain {
   id: string;
   user_id: string;
   name: string;
-  // REMOVED: proxied: boolean;
   nameservers: string[];
   status: "active" | "pending_verification";
+  stats?: DomainStats; // [UPDATED] Added stats field
   created_at: string;
 }
 
@@ -60,6 +71,7 @@ export interface VerifyDomainResponse {
   status: string;
   message: string;
   found_records?: any[];
+  details?: any;
 }
 
 // DNS Record types
@@ -71,7 +83,7 @@ export interface DNSRecord {
   content: string;
   ttl: number;
   proxied: boolean;
-  origin_ssl?: boolean; // [NEW] Add this field
+  origin_ssl?: boolean;
   created_at: string;
 }
 
@@ -82,7 +94,13 @@ export interface AddDNSRecordRequest {
   content: string;
   ttl: number;
   proxied: boolean;
-  origin_ssl?: boolean; // [NEW] Add this field
+  origin_ssl?: boolean;
+}
+
+export interface ToggleDNSRecordOriginSSLRequest {
+  domain_id: string;
+  record_id: string;
+  origin_ssl: boolean;
 }
 
 // Rule types
@@ -123,26 +141,24 @@ export interface AttackLog {
   _id?: string;
   timestamp: string;
   ip: string;
-  request_path: string; // Matches json:"request_path"
+  request_path: string;
   reason: string;
   action: "Blocked" | "Flagged" | "Monitor";
   source: "Rule Engine" | "ML Engine" | "Hybrid";
   tags: string[];
   score: number;
-  ml_confidence?: number; // Matches json:"ml_confidence"
-  trigger_payload?: string; // Matches json:"trigger_payload"
+  ml_confidence?: number;
+  trigger_payload?: string;
   domain_id?: string;
   request?: {
     method: string;
     url: string;
-    // Go headers map to string arrays
     headers: Record<string, string[]>;
     body: string;
     proto?: string;
   };
 }
 
-// Pagination Wrapper
 export interface PaginatedLogsResponse {
   data: AttackLog[];
   pagination: {
@@ -151,10 +167,4 @@ export interface PaginatedLogsResponse {
     total_items: number;
     per_page: number;
   };
-}
-
-export interface ToggleDNSRecordOriginSSLRequest {
-  domain_id: string;
-  record_id: string;
-  origin_ssl: boolean;
 }

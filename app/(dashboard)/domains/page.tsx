@@ -18,6 +18,7 @@ import {
   getDomains,
   addDomain,
   verifyDomain,
+  deleteDomain,
   getDNSRecords,
   addDNSRecord,
   deleteDNSRecord,
@@ -27,6 +28,7 @@ import {
 import { Domain, DNSRecord } from "@/types";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Plus,
   Globe,
   Trash2,
@@ -41,12 +43,9 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-// ... existing imports
-
 // Regex Patterns
 const DOMAIN_REGEX =
   /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
-// ADD THESE NEW ONES:
 const IPV4_REGEX =
   /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 const IPV6_REGEX =
@@ -55,16 +54,22 @@ const IPV6_REGEX =
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Add Domain State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDomainName, setNewDomainName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
 
-  // DNS Records state
+  // Delete Domain State
+  const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // DNS Records State
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [dnsRecords, setDnsRecords] = useState<Record<string, DNSRecord[]>>({});
   const [loadingRecords, setLoadingRecords] = useState<string | null>(null);
 
-  // Add Record Modal
+  // Add Record Modal State
   const [showAddRecordModal, setShowAddRecordModal] = useState(false);
   const [selectedDomainForRecord, setSelectedDomainForRecord] =
     useState<Domain | null>(null);
@@ -115,6 +120,33 @@ export default function DomainsPage() {
         toast.error(result.message);
       }
     }
+  };
+
+  // Trigger for the delete modal
+  const promptDeleteDomain = (domain: Domain) => {
+    setDomainToDelete(domain);
+  };
+
+  // Actual delete execution
+  const handleConfirmDelete = async () => {
+    if (!domainToDelete) return;
+
+    setIsDeleting(true);
+    const result = await deleteDomain(domainToDelete.id);
+
+    if (result) {
+      toast.success("Domain deleted successfully");
+      // Update local state
+      setDomains((prev) => prev.filter((d) => d.id !== domainToDelete.id));
+      // If the deleted domain was expanded, collapse it
+      if (expandedDomain === domainToDelete.id) {
+        setExpandedDomain(null);
+      }
+      setDomainToDelete(null); // Close modal
+    } else {
+      toast.error("Failed to delete domain");
+    }
+    setIsDeleting(false);
   };
 
   const toggleDomainExpand = async (domain: Domain) => {
@@ -182,7 +214,6 @@ export default function DomainsPage() {
     if (!newRecord.name) return toast.error("Name required");
     if (!newRecord.content) return toast.error("Content required");
 
-    // --- NEW VALIDATION LOGIC START ---
     let isValid = true;
     let errorMessage = "";
 
@@ -202,14 +233,12 @@ export default function DomainsPage() {
       case "CNAME":
       case "MX":
       case "NS":
-        // Using your existing DOMAIN_REGEX for hostnames
         if (!DOMAIN_REGEX.test(newRecord.content)) {
           isValid = false;
           errorMessage = "Invalid domain format (e.g., example.com)";
         }
         break;
       case "TXT":
-        // TXT records are usually permissive, but shouldn't be empty
         if (newRecord.content.length < 1) {
           isValid = false;
           errorMessage = "TXT content cannot be empty";
@@ -220,7 +249,6 @@ export default function DomainsPage() {
     if (!isValid) {
       return toast.error(errorMessage);
     }
-    // --- NEW VALIDATION LOGIC END ---
 
     setIsAddingRecord(true);
     const result = await addDNSRecord({
@@ -279,11 +307,9 @@ export default function DomainsPage() {
     return styles[type] || "text-muted-foreground bg-muted border-border";
   };
 
-  // [UPDATED] Replaced text loader with a Skeleton layout to prevent layout shift
   if (isLoading) {
     return (
       <div className="space-y-8 max-w-[1600px] mx-auto">
-        {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
             <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2" />
@@ -291,8 +317,6 @@ export default function DomainsPage() {
           </div>
           <div className="h-10 w-32 bg-muted animate-pulse rounded" />
         </div>
-
-        {/* List Skeleton */}
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
             <div
@@ -306,7 +330,6 @@ export default function DomainsPage() {
   }
 
   return (
-    // [UPDATED] Removed 'animate-in fade-in duration-500' to stop re-animating on visit
     <div className="space-y-8 max-w-[1600px] mx-auto">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
@@ -462,6 +485,17 @@ export default function DomainsPage() {
                         </Button>
                       </>
                     )}
+
+                    {/* DELETE BUTTON */}
+                    <div className="h-4 w-px bg-border mx-1" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-red-600 hover:bg-red-600/10 transition-colors"
+                      onClick={() => promptDeleteDomain(domain)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
 
@@ -660,7 +694,6 @@ export default function DomainsPage() {
                 <div className="space-y-2">
                   <Label>Content</Label>
                   <Input
-                    // UPDATED PLACEHOLDER LOGIC
                     placeholder={
                       {
                         A: "192.0.2.1",
@@ -676,7 +709,6 @@ export default function DomainsPage() {
                       setNewRecord({ ...newRecord, content: e.target.value })
                     }
                   />
-                  {/* OPTIONAL: Helper text to guide user */}
                   <p className="text-[10px] text-muted-foreground">
                     {newRecord.type === "A" && "Enter a valid IPv4 address."}
                     {newRecord.type === "AAAA" && "Enter a valid IPv6 address."}
@@ -718,6 +750,81 @@ export default function DomainsPage() {
                 </Button>
               </div>
             </form>
+          </Card>
+        </div>
+      )}
+
+      {/* --- ANIMATED DELETE CONFIRMATION MODAL --- */}
+      {domainToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-md shadow-2xl border-red-500/30 bg-card overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-300 ease-out">
+            <div
+              className={`h-1.5 w-full transition-all duration-300 ${
+                isDeleting ? "bg-red-600 animate-pulse" : "bg-red-500"
+              }`}
+            />
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-5">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-20"></span>
+                  <AlertTriangle
+                    className="h-6 w-6 text-red-600 relative z-10"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-foreground">
+                    Delete Domain?
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    This process is irreversible.
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-foreground">
+                <p>
+                  Are you sure you want to delete{" "}
+                  <span className="font-bold text-red-500">
+                    {domainToDelete.name}
+                  </span>
+                  ?
+                </p>
+                <p className="mt-2 text-muted-foreground text-xs">
+                  This will permanently remove the domain and delete all
+                  associated DNS records. Traffic will stop immediately.
+                </p>
+              </div>
+            </CardContent>
+            <div className="p-6 pt-2 flex justify-end gap-3 bg-muted/20">
+              <Button
+                variant="ghost"
+                disabled={isDeleting}
+                onClick={() => setDomainToDelete(null)}
+                className="hover:bg-transparent hover:text-foreground transition-all hover:underline"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white gap-2 shadow-lg shadow-red-500/20 transition-all active:scale-95"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Yes, Delete It
+                  </>
+                )}
+              </Button>
+            </div>
           </Card>
         </div>
       )}

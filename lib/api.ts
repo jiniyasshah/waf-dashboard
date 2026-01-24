@@ -45,12 +45,12 @@ interface StandardResponse<T> {
 // Generic API call handler with improved error handling
 async function apiCall<T>(
   endpoint: string,
-  options: ApiCallOptions = {}
+  options: ApiCallOptions = {},
 ): Promise<T | null> {
   if (!API_URL) {
     if (!options.suppressErrorToast) {
       toast.error(
-        "API URL not configured. Please set NEXT_PUBLIC_API_URL in .env.local"
+        "API URL not configured. Please set NEXT_PUBLIC_API_URL in .env.local",
       );
     }
     return null;
@@ -159,7 +159,7 @@ async function apiCall<T>(
 
 // Auth API calls
 export async function register(
-  data: RegisterRequest
+  data: RegisterRequest,
 ): Promise<AuthResponse | null> {
   return apiCall<AuthResponse>("/api/auth/register", {
     method: "POST",
@@ -195,7 +195,7 @@ export async function getDomains(): Promise<Domain[] | null> {
 }
 
 export async function addDomain(
-  data: AddDomainRequest
+  data: AddDomainRequest,
 ): Promise<Domain | null> {
   return apiCall<Domain>("/api/domains/add", {
     method: "POST",
@@ -204,7 +204,7 @@ export async function addDomain(
 }
 
 export async function verifyDomain(
-  domainId: string
+  domainId: string,
 ): Promise<VerifyDomainResponse | null> {
   return apiCall<VerifyDomainResponse>(`/api/domains/verify?id=${domainId}`, {
     method: "POST",
@@ -213,13 +213,13 @@ export async function verifyDomain(
 
 // DNS Record API calls
 export async function getDNSRecords(
-  domainId: string
+  domainId: string,
 ): Promise<DNSRecord[] | null> {
   return apiCall<DNSRecord[]>(`/api/dns/records?domain_id=${domainId}`);
 }
 
 export async function addDNSRecord(
-  data: AddDNSRecordRequest
+  data: AddDNSRecordRequest,
 ): Promise<any | null> {
   return apiCall("/api/dns/records", {
     method: "POST",
@@ -229,13 +229,13 @@ export async function addDNSRecord(
 
 export async function deleteDNSRecord(
   domainId: string,
-  recordId: string
+  recordId: string,
 ): Promise<any | null> {
   return apiCall(
     `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
     {
       method: "DELETE",
-    }
+    },
   );
 }
 
@@ -243,7 +243,7 @@ export async function deleteDNSRecord(
 export async function toggleDNSRecordProxy(
   domainId: string,
   recordId: string,
-  proxied: boolean
+  proxied: boolean,
 ): Promise<any | null> {
   return apiCall(
     `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
@@ -253,7 +253,7 @@ export async function toggleDNSRecordProxy(
         action: "toggle_proxy",
         proxied: proxied,
       }),
-    }
+    },
   );
 }
 
@@ -261,7 +261,7 @@ export async function toggleDNSRecordProxy(
 export async function toggleDNSRecordOriginSSL(
   domainId: string,
   recordId: string,
-  originSSL: boolean
+  originSSL: boolean,
 ): Promise<any | null> {
   return apiCall(
     `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
@@ -271,27 +271,27 @@ export async function toggleDNSRecordOriginSSL(
         action: "toggle_origin_ssl",
         origin_ssl: originSSL,
       }),
-    }
+    },
   );
 }
 
 // Rules API calls
 export async function getGlobalRules(
-  domainId?: string
+  domainId?: string,
 ): Promise<Rule[] | null> {
   const query = domainId ? `?domain_id=${domainId}` : "";
   return apiCall<Rule[]>(`/api/rules/global${query}`);
 }
 
 export async function getCustomRules(
-  domainId?: string
+  domainId?: string,
 ): Promise<Rule[] | null> {
   const query = domainId ? `?domain_id=${domainId}` : "";
   return apiCall<Rule[]>(`/api/rules/custom${query}`);
 }
 
 export async function addCustomRule(
-  data: AddCustomRuleRequest
+  data: AddCustomRuleRequest,
 ): Promise<any | null> {
   return apiCall("/api/rules/custom/add", {
     method: "POST",
@@ -320,7 +320,7 @@ export async function toggleRule(data: ToggleRuleRequest): Promise<any | null> {
 export async function getLogs(
   page: number = 1,
   limit: number = 20,
-  domainId?: string
+  domainId?: string,
 ): Promise<PaginatedLogsResponse | null> {
   const query = `?page=${page}&limit=${limit}${
     domainId ? `&domain_id=${domainId}` : ""
@@ -330,7 +330,7 @@ export async function getLogs(
 
 // SSE for real-time logs
 export function createLogStream(
-  onMessage: (log: AttackLog) => void
+  onMessage: (log: AttackLog) => void,
 ): EventSource | null {
   if (!API_URL) {
     toast.error("API URL not configured.");
@@ -361,4 +361,10 @@ export function createLogStream(
     console.error("Failed to create SSE connection:", error);
     return null;
   }
+}
+
+export async function deleteDomain(domainId: string): Promise<any | null> {
+  return apiCall(`/api/domains/delete?id=${domainId}`, {
+    method: "DELETE",
+  });
 }

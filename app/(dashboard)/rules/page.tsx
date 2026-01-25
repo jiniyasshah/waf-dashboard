@@ -150,8 +150,8 @@ export default function RulesPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* HEADER - Responsive Stack */}
+    <div className="space-y-6 animate-in fade-in duration-500 overflow-x-hidden">
+      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
@@ -198,7 +198,7 @@ export default function RulesPage() {
         </div>
       </div>
 
-      {/* TABS - Scrollable on mobile */}
+      {/* TABS */}
       <div className="flex items-center gap-1 border-b border-border/40 overflow-x-auto no-scrollbar">
         {(["global", "custom"] as const).map((tab) => (
           <button
@@ -215,7 +215,7 @@ export default function RulesPage() {
         ))}
       </div>
 
-      {/* ADD MODAL - Full screen on mobile */}
+      {/* MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
           <Card className="w-full max-w-2xl border-border/40 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 max-h-[95vh] flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden">
@@ -406,7 +406,7 @@ export default function RulesPage() {
         </div>
       )}
 
-      {/* RULES LIST - Responsive Flex Card */}
+      {/* RULES LIST */}
       <div className="grid gap-4">
         {rules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-card/30 rounded-xl border border-dashed border-border/60">
@@ -425,36 +425,47 @@ export default function RulesPage() {
             >
               <CardContent className="p-5 md:p-6">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="space-y-4 flex-1">
+                  <div className="space-y-4 flex-1 min-w-0">
+                    {" "}
+                    {/* Add min-w-0 to allow children to shrink */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                         <Shield className="h-4 w-4 text-primary" />
                       </div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-white truncate">
                         {rule.name}
                       </h3>
                       {rule.on_match.hard_block && (
                         <Badge
                           variant="destructive"
-                          className="uppercase text-[10px] tracking-wider font-bold"
+                          className="uppercase text-[10px] tracking-wider font-bold shrink-0"
                         >
                           Hard Block
                         </Badge>
                       )}
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                      <div className="space-y-1 min-w-0">
+                        {" "}
+                        {/* min-w-0 is key for flex containers */}
                         <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-1">
                           <Info className="h-3 w-3" /> Condition
                         </span>
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-col gap-2 pt-1">
                           {rule.conditions.map((cond, i) => (
                             <code
                               key={i}
-                              className="text-[11px] bg-background border border-border/40 px-2 py-1 rounded text-primary font-mono"
+                              className="text-[11px] bg-background border border-border/40 p-2 rounded text-primary font-mono break-all whitespace-pre-wrap leading-relaxed inline-block"
                             >
-                              {cond.field} {cond.operator} "{cond.value}"
+                              <span className="text-muted-foreground">
+                                {cond.field}
+                              </span>{" "}
+                              <span className="text-indigo-400">
+                                {cond.operator}
+                              </span>{" "}
+                              <span className="text-foreground">
+                                "{cond.value}"
+                              </span>
                             </code>
                           ))}
                         </div>
@@ -475,7 +486,7 @@ export default function RulesPage() {
                             </span>
                           )}
 
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-wrap">
                             {rule.on_match.tags.map((tag, i) => (
                               <Badge
                                 key={i}
@@ -491,9 +502,13 @@ export default function RulesPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-4 md:pt-1 border-t md:border-t-0 border-border/40 pt-4">
+                  <div className="flex items-center justify-between md:justify-end gap-4 md:pt-1 border-t md:border-t-0 border-border/40 pt-4 shrink-0">
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-widest ${rule.enabled ? "text-emerald-500" : "text-muted-foreground"}`}
+                      className={`text-[10px] font-bold uppercase tracking-widest ${
+                        rule.enabled
+                          ? "text-emerald-500"
+                          : "text-muted-foreground"
+                      }`}
                     >
                       {rule.enabled ? "Active" : "Disabled"}
                     </span>

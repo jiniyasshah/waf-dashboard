@@ -40,6 +40,8 @@ import {
   Lock,
   Unlock,
   Server,
+  Calendar,
+  X,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -54,22 +56,14 @@ const IPV6_REGEX =
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Add Domain State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDomainName, setNewDomainName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-
-  // Delete Domain State
   const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // DNS Records State
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [dnsRecords, setDnsRecords] = useState<Record<string, DNSRecord[]>>({});
   const [loadingRecords, setLoadingRecords] = useState<string | null>(null);
-
-  // Add Record Modal State
   const [showAddRecordModal, setShowAddRecordModal] = useState(false);
   const [selectedDomainForRecord, setSelectedDomainForRecord] =
     useState<Domain | null>(null);
@@ -122,27 +116,15 @@ export default function DomainsPage() {
     }
   };
 
-  // Trigger for the delete modal
-  const promptDeleteDomain = (domain: Domain) => {
-    setDomainToDelete(domain);
-  };
-
-  // Actual delete execution
   const handleConfirmDelete = async () => {
     if (!domainToDelete) return;
-
     setIsDeleting(true);
     const result = await deleteDomain(domainToDelete.id);
-
     if (result) {
       toast.success("Domain deleted successfully");
-      // Update local state
       setDomains((prev) => prev.filter((d) => d.id !== domainToDelete.id));
-      // If the deleted domain was expanded, collapse it
-      if (expandedDomain === domainToDelete.id) {
-        setExpandedDomain(null);
-      }
-      setDomainToDelete(null); // Close modal
+      if (expandedDomain === domainToDelete.id) setExpandedDomain(null);
+      setDomainToDelete(null);
     } else {
       toast.error("Failed to delete domain");
     }
@@ -166,14 +148,12 @@ export default function DomainsPage() {
   const handleToggleProxy = async (domainId: string, record: DNSRecord) => {
     const previousRecords = dnsRecords[domainId];
     const newProxiedState = !record.proxied;
-
     setDnsRecords((prev) => ({
       ...prev,
       [domainId]: prev[domainId].map((r) =>
         r.id === record.id ? { ...r, proxied: newProxiedState } : r,
       ),
     }));
-
     const result = await toggleDNSRecordProxy(
       domainId,
       record.id,
@@ -193,7 +173,6 @@ export default function DomainsPage() {
         r.id === record.id ? { ...r, origin_ssl: newStatus } : r,
       ),
     }));
-
     try {
       await toggleDNSRecordOriginSSL(domainId, record.id, newStatus);
     } catch {
@@ -210,45 +189,8 @@ export default function DomainsPage() {
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDomainForRecord) return;
-
     if (!newRecord.name) return toast.error("Name required");
     if (!newRecord.content) return toast.error("Content required");
-
-    let isValid = true;
-    let errorMessage = "";
-
-    switch (newRecord.type) {
-      case "A":
-        if (!IPV4_REGEX.test(newRecord.content)) {
-          isValid = false;
-          errorMessage = "Invalid IPv4 address (e.g., 192.0.2.1)";
-        }
-        break;
-      case "AAAA":
-        if (!IPV6_REGEX.test(newRecord.content)) {
-          isValid = false;
-          errorMessage = "Invalid IPv6 address";
-        }
-        break;
-      case "CNAME":
-      case "MX":
-      case "NS":
-        if (!DOMAIN_REGEX.test(newRecord.content)) {
-          isValid = false;
-          errorMessage = "Invalid domain format (e.g., example.com)";
-        }
-        break;
-      case "TXT":
-        if (newRecord.content.length < 1) {
-          isValid = false;
-          errorMessage = "TXT content cannot be empty";
-        }
-        break;
-    }
-
-    if (!isValid) {
-      return toast.error(errorMessage);
-    }
 
     setIsAddingRecord(true);
     const result = await addDNSRecord({
@@ -260,7 +202,7 @@ export default function DomainsPage() {
       ttl: newRecord.ttl,
     });
 
-    if (result && result.status === "success") {
+    if (result?.status === "success") {
       toast.success("Record added");
       const records = await getDNSRecords(selectedDomainForRecord.id);
       if (records)
@@ -284,7 +226,7 @@ export default function DomainsPage() {
 
   const handleDeleteRecord = async (domainId: string, recordId: string) => {
     const result = await deleteDNSRecord(domainId, recordId);
-    if (result && result.status === "success") {
+    if (result?.status === "success") {
       toast.success("Record deleted");
       setDnsRecords((prev) => ({
         ...prev,
@@ -309,19 +251,13 @@ export default function DomainsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 max-w-[1600px] mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2" />
-            <div className="h-4 w-64 bg-muted/50 animate-pulse rounded" />
-          </div>
-          <div className="h-10 w-32 bg-muted animate-pulse rounded" />
-        </div>
+      <div className="space-y-6 max-w-[1600px] mx-auto animate-pulse">
+        <div className="h-10 w-48 bg-muted rounded mb-4" />
         <div className="grid gap-4">
-          {[1, 2, 3].map((i) => (
+          {[1, 2].map((i) => (
             <div
               key={i}
-              className="h-[120px] w-full bg-muted/20 animate-pulse rounded-lg border border-border/50"
+              className="h-32 bg-card/50 border border-border/40 rounded-xl"
             />
           ))}
         </div>
@@ -330,32 +266,35 @@ export default function DomainsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      {/* HEADER - Responsive Stack */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          <h2 className="text-2xl font-bold tracking-tight text-white">
             Domain Management
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure DNS records, proxy settings, and SSL termination.
+            Configure DNS, proxy settings, and SSL protection.
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Domain
+        <Button
+          onClick={() => setShowAddModal(true)}
+          className="shadow-lg shadow-primary/20 shrink-0"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Add Domain
         </Button>
       </div>
 
-      {/* DOMAIN LIST */}
+      {/* DOMAIN LIST - Grid Layout for Tablets/Desktop */}
       <div className="grid gap-4">
         {domains.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg bg-muted/5">
-            <Globe className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium text-foreground">
+          <div className="text-center py-20 border border-dashed border-border/60 rounded-xl bg-card/10">
+            <Globe className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white">
               No domains configured
             </h3>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
-              Add a domain to start protecting your infrastructure.
+            <p className="text-sm text-muted-foreground mt-2 mb-6">
+              Start by adding your first domain for protection.
             </p>
             <Button onClick={() => setShowAddModal(true)} variant="outline">
               Add First Domain
@@ -365,83 +304,66 @@ export default function DomainsPage() {
           domains.map((domain) => {
             const isExpanded = expandedDomain === domain.id;
             const isActive = domain.status === "active";
-
             return (
               <Card
                 key={domain.id}
-                className={`border-border transition-all duration-200 ${
-                  isExpanded
-                    ? "ring-1 ring-primary/20"
-                    : "hover:border-primary/30"
-                }`}
+                className={`group border-border/40 transition-all duration-300 ${isExpanded ? "ring-1 ring-primary/40 bg-card" : "hover:border-primary/40 bg-card/50"}`}
               >
                 <div
-                  className="p-6 flex flex-col sm:flex-row sm:items-center gap-6 cursor-pointer"
+                  className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center gap-6 cursor-pointer"
                   onClick={() => isActive && toggleDomainExpand(domain)}
                 >
-                  {/* Icon & Status */}
-                  <div className="flex items-center gap-4 min-w-[200px]">
+                  <div className="flex items-center gap-4 min-w-[220px]">
                     <div
-                      className={`p-3 rounded-full ${
-                        isActive
-                          ? "bg-emerald-500/10 text-emerald-500"
-                          : "bg-yellow-500/10 text-yellow-500"
-                      }`}
+                      className={`p-3 rounded-xl transition-colors ${isActive ? "bg-emerald-500/10 text-emerald-500" : "bg-yellow-500/10 text-yellow-500"}`}
                     >
                       <Globe className="h-6 w-6" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold text-white truncate">
                         {domain.name}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <span
-                          className={`flex h-2 w-2 rounded-full ${
-                            isActive
-                              ? "bg-emerald-500"
-                              : "bg-yellow-500 animate-pulse"
-                          }`}
+                          className={`h-2 w-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-yellow-500 animate-pulse"}`}
                         />
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          {isActive
-                            ? "Active & Protected"
-                            : "Pending Verification"}
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          {isActive ? "Active" : "Pending"}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Metadata */}
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
                         Nameservers
                       </span>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {domain.nameservers.slice(0, 2).map((ns, i) => (
                           <Badge
                             key={i}
                             variant="secondary"
-                            className="font-mono text-[10px] px-1.5"
+                            className="font-mono text-[9px] px-1.5 h-5 bg-background border-border/40"
                           >
                             {ns}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">
-                        Added On
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                        Creation Date
                       </span>
-                      <span className="font-medium">
+                      <div className="flex items-center gap-2 text-sm text-foreground/80">
+                        <Calendar className="h-3.5 w-3.5" />{" "}
                         {formatDate(domain.created_at)}
-                      </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-between sm:justify-end gap-3 pt-4 lg:pt-0 border-t lg:border-t-0 border-border/20"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {!isActive ? (
@@ -450,31 +372,24 @@ export default function DomainsPage() {
                         size="sm"
                         className="gap-2"
                       >
-                        <ShieldCheck className="h-4 w-4" /> Verify Setup
+                        <ShieldCheck className="h-4 w-4" /> Verify
                       </Button>
                     ) : (
-                      <>
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedDomainForRecord(domain);
-                            setNewRecord({
-                              name: "",
-                              type: "A",
-                              content: "",
-                              proxied: true,
-                              ttl: 300,
-                            });
                             setShowAddRecordModal(true);
                           }}
                         >
-                          <Plus className="h-4 w-4 mr-2" /> Add Record
+                          <Plus className="h-4 w-4 mr-2" /> Record
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-muted-foreground hover:text-foreground"
+                          className="h-9 w-9 text-muted-foreground hover:text-white"
                           onClick={() => toggleDomainExpand(domain)}
                         >
                           {isExpanded ? (
@@ -483,76 +398,57 @@ export default function DomainsPage() {
                             <ChevronRight className="h-5 w-5" />
                           )}
                         </Button>
-                      </>
+                      </div>
                     )}
-
-                    {/* DELETE BUTTON */}
-                    <div className="h-4 w-px bg-border mx-1" />
+                    <div className="h-6 w-px bg-border/40 mx-1 hidden sm:block" />
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-muted-foreground hover:text-red-600 hover:bg-red-600/10 transition-colors"
-                      onClick={() => promptDeleteDomain(domain)}
+                      className="h-9 w-9 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10"
+                      onClick={() => setDomainToDelete(domain)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                {/* DNS RECORDS PANEL */}
+                {/* DNS RECORDS PANEL - Mobile Friendly rows */}
                 {isExpanded && isActive && (
-                  <div className="border-t border-border bg-muted/10 p-6 animate-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <Server className="h-4 w-4" /> DNS Configuration
-                      </h4>
-                    </div>
-
-                    {loadingRecords === domain.id ? (
-                      <div className="text-sm text-muted-foreground py-4">
-                        Loading records...
-                      </div>
-                    ) : dnsRecords[domain.id]?.length === 0 ? (
-                      <div className="text-sm text-muted-foreground py-4">
-                        No records found.
-                      </div>
-                    ) : (
-                      <div className="grid gap-2">
-                        {dnsRecords[domain.id]?.map((record) => (
-                          <div
-                            key={record.id}
-                            className="group flex flex-col md:flex-row md:items-center justify-between p-3 rounded-md bg-background border border-border/50 hover:border-primary/20 transition-all"
-                          >
-                            {/* Record Info */}
-                            <div className="flex items-center gap-4 flex-1">
-                              <Badge
-                                variant="outline"
-                                className={`w-16 justify-center font-mono text-xs font-bold border ${getRecordTypeStyle(
-                                  record.type,
-                                )}`}
+                  <div className="border-t border-border/40 bg-muted/10 p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2 mb-4">
+                      <Server className="h-4 w-4 text-primary" /> DNS Records
+                    </h4>
+                    <div className="space-y-2">
+                      {dnsRecords[domain.id]?.map((record) => (
+                        <div
+                          key={record.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-card border border-border/40 hover:border-primary/20 gap-4"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <Badge
+                              variant="outline"
+                              className={`w-14 justify-center font-mono text-[10px] font-bold h-6 ${getRecordTypeStyle(record.type)}`}
+                            >
+                              {record.type}
+                            </Badge>
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-white truncate">
+                                {record.name}
+                              </div>
+                              <div
+                                className="text-[11px] text-muted-foreground font-mono truncate max-w-[200px] md:max-w-md"
+                                title={record.content}
                               >
-                                {record.type}
-                              </Badge>
-                              <div className="flex flex-col">
-                                <span className="font-mono text-sm font-medium text-foreground">
-                                  {record.name}
-                                </span>
-                                <span
-                                  className="font-mono text-xs text-muted-foreground truncate max-w-[300px]"
-                                  title={record.content}
-                                >
-                                  {record.content}
-                                </span>
+                                {record.content}
                               </div>
                             </div>
-
-                            {/* Toggles & Actions */}
-                            <div className="flex items-center gap-6 mt-3 md:mt-0">
-                              {/* SSL Toggle */}
-                              {["A", "AAAA", "CNAME"].includes(record.type) && (
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-border/10 pt-3 sm:pt-0">
+                            {["A", "AAAA", "CNAME"].includes(record.type) && (
+                              <div className="flex items-center gap-4">
                                 <div
                                   className="flex items-center gap-2"
-                                  title="Origin SSL: Encrypt traffic to backend"
+                                  title="SSL Protection"
                                 >
                                   {record.origin_ssl ? (
                                     <Lock className="h-3.5 w-3.5 text-emerald-500" />
@@ -564,16 +460,12 @@ export default function DomainsPage() {
                                     onCheckedChange={() =>
                                       handleToggleOriginSSL(domain.id, record)
                                     }
-                                    className="scale-75"
+                                    className="scale-75 data-[state=checked]:bg-emerald-500"
                                   />
                                 </div>
-                              )}
-
-                              {/* Proxy Toggle */}
-                              {["A", "AAAA", "CNAME"].includes(record.type) && (
                                 <div
                                   className="flex items-center gap-2"
-                                  title="Proxy Status: WAF Protection"
+                                  title="WAF Proxy"
                                 >
                                   {record.proxied ? (
                                     <CloudLightning className="h-3.5 w-3.5 text-orange-500" />
@@ -588,25 +480,22 @@ export default function DomainsPage() {
                                     className="scale-75 data-[state=checked]:bg-orange-500"
                                   />
                                 </div>
-                              )}
-
-                              <div className="h-4 w-px bg-border mx-2" />
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-                                onClick={() =>
-                                  handleDeleteRecord(domain.id, record.id)
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                              onClick={() =>
+                                handleDeleteRecord(domain.id, record.id)
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </Card>
@@ -615,33 +504,34 @@ export default function DomainsPage() {
         )}
       </div>
 
-      {/* --- ADD DOMAIN MODAL --- */}
+      {/* --- MODALS - Center on desktop, Bottom-sheet style on mobile --- */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-md shadow-2xl border-border bg-card">
-            <CardHeader>
-              <CardTitle>Add New Domain</CardTitle>
+        <div className="fixed inset-0 z-50 flex items-center sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
+          <Card className="w-full max-w-md border-border/40 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-t-xl sm:rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border/20 py-4 px-6">
+              <CardTitle className="text-lg">Add Domain</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAddModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <form onSubmit={handleAddDomain}>
-              <CardContent className="space-y-4">
+              <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <Label>Domain Name</Label>
+                  <Label>Domain URL</Label>
                   <Input
                     placeholder="example.com"
+                    className="bg-muted/30"
                     value={newDomainName}
                     onChange={(e) => setNewDomainName(e.target.value)}
                   />
                 </div>
               </CardContent>
-              <div className="p-6 pt-0 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAddModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isAdding}>
+              <div className="p-6 pt-0 flex gap-3">
+                <Button type="submit" className="flex-1" disabled={isAdding}>
                   {isAdding ? "Adding..." : "Add Domain"}
                 </Button>
               </div>
@@ -650,17 +540,23 @@ export default function DomainsPage() {
         </div>
       )}
 
-      {/* --- ADD RECORD MODAL --- */}
       {showAddRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-lg shadow-2xl border-border bg-card">
-            <CardHeader>
-              <CardTitle>Add DNS Record</CardTitle>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
+          <Card className="w-full max-w-lg border-border/40 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-t-xl sm:rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border/20 py-4 px-6">
+              <CardTitle className="text-lg">New DNS Record</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAddRecordModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <form onSubmit={handleAddRecord}>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="col-span-1 space-y-2">
+              <CardContent className="p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="space-y-2">
                     <Label>Type</Label>
                     <Select
                       value={newRecord.type}
@@ -668,7 +564,7 @@ export default function DomainsPage() {
                         setNewRecord({ ...newRecord, type: v })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-muted/30">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -680,10 +576,11 @@ export default function DomainsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-3 space-y-2">
-                    <Label>Name</Label>
+                  <div className="sm:col-span-3 space-y-2">
+                    <Label>Host Name</Label>
                     <Input
                       placeholder="@"
+                      className="bg-muted/30"
                       value={newRecord.name}
                       onChange={(e) =>
                         setNewRecord({ ...newRecord, name: e.target.value })
@@ -692,39 +589,22 @@ export default function DomainsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Content</Label>
+                  <Label>Target Content</Label>
                   <Input
-                    placeholder={
-                      {
-                        A: "192.0.2.1",
-                        AAAA: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-                        CNAME: "example.com",
-                        MX: "mail.example.com",
-                        TXT: "v=spf1 include:_spf.google.com ~all",
-                        NS: "ns1.example.com",
-                      }[newRecord.type] || "Content"
-                    }
+                    placeholder="IP or Hostname"
+                    className="bg-muted/30"
                     value={newRecord.content}
                     onChange={(e) =>
                       setNewRecord({ ...newRecord, content: e.target.value })
                     }
                   />
-                  <p className="text-[10px] text-muted-foreground">
-                    {newRecord.type === "A" && "Enter a valid IPv4 address."}
-                    {newRecord.type === "AAAA" && "Enter a valid IPv6 address."}
-                    {(newRecord.type === "CNAME" ||
-                      newRecord.type === "NS" ||
-                      newRecord.type === "MX") &&
-                      "Enter a valid hostname."}
-                  </p>
                 </div>
-
                 {["A", "AAAA", "CNAME"].includes(newRecord.type) && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-muted/10">
                     <div className="space-y-0.5">
-                      <Label>Proxy Status</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Route traffic through WAF
+                      <Label className="text-xs">Proxy Status</Label>
+                      <p className="text-[10px] text-muted-foreground font-medium">
+                        Protect through WAF Cloud
                       </p>
                     </div>
                     <Switch
@@ -737,16 +617,13 @@ export default function DomainsPage() {
                   </div>
                 )}
               </CardContent>
-              <div className="p-6 pt-0 flex justify-end gap-2">
+              <div className="p-6 pt-0 flex gap-3">
                 <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAddRecordModal(false)}
+                  type="submit"
+                  className="flex-1"
+                  disabled={isAddingRecord}
                 >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isAddingRecord}>
-                  {isAddingRecord ? "Adding..." : "Save Record"}
+                  {isAddingRecord ? "Processing..." : "Create Record"}
                 </Button>
               </div>
             </form>
@@ -754,75 +631,40 @@ export default function DomainsPage() {
         </div>
       )}
 
-      {/* --- ANIMATED DELETE CONFIRMATION MODAL --- */}
       {domainToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <Card className="w-full max-w-md shadow-2xl border-red-500/30 bg-card overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-300 ease-out">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <Card className="w-full max-w-md border-rose-500/30 bg-card overflow-hidden animate-in zoom-in-95 duration-300">
             <div
-              className={`h-1.5 w-full transition-all duration-300 ${
-                isDeleting ? "bg-red-600 animate-pulse" : "bg-red-500"
-              }`}
+              className={`h-1.5 w-full ${isDeleting ? "bg-rose-600 animate-pulse" : "bg-rose-500"}`}
             />
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-5">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-20"></span>
-                  <AlertTriangle
-                    className="h-6 w-6 text-red-600 relative z-10"
-                    aria-hidden="true"
-                  />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-foreground">
-                    Delete Domain?
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    This process is irreversible.
-                  </p>
-                </div>
+            <CardHeader className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 mb-4">
+                <AlertTriangle className="h-6 w-6 text-rose-500" />
               </div>
+              <CardTitle className="text-xl">
+                Delete {domainToDelete.name}?
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2 px-4 italic">
+                This will permanently stop all traffic and delete associated DNS
+                data.
+              </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-foreground">
-                <p>
-                  Are you sure you want to delete{" "}
-                  <span className="font-bold text-red-500">
-                    {domainToDelete.name}
-                  </span>
-                  ?
-                </p>
-                <p className="mt-2 text-muted-foreground text-xs">
-                  This will permanently remove the domain and delete all
-                  associated DNS records. Traffic will stop immediately.
-                </p>
-              </div>
-            </CardContent>
-            <div className="p-6 pt-2 flex justify-end gap-3 bg-muted/20">
-              <Button
-                variant="ghost"
-                disabled={isDeleting}
-                onClick={() => setDomainToDelete(null)}
-                className="hover:bg-transparent hover:text-foreground transition-all hover:underline"
-              >
-                Cancel
-              </Button>
+            <div className="p-6 pt-0 flex flex-col gap-2">
               <Button
                 variant="destructive"
+                className="w-full shadow-lg shadow-rose-900/40 font-bold"
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}
-                className="bg-red-600 hover:bg-red-700 text-white gap-2 shadow-lg shadow-red-500/20 transition-all active:scale-95"
               >
-                {isDeleting ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Yes, Delete It
-                  </>
-                )}
+                {isDeleting ? "Deleting Domain..." : "Confirm Final Deletion"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setDomainToDelete(null)}
+                disabled={isDeleting}
+              >
+                Keep Domain
               </Button>
             </div>
           </Card>

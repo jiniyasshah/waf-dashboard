@@ -370,3 +370,9 @@ export async function deleteDomain(domainId: string): Promise<any | null> {
     method: "DELETE",
   });
 }
+
+export async function verifyEmail(token: string): Promise<any | null> {
+  return apiCall(`/api/auth/verify?token=${token}`, {
+    method: "GET",
+  });
+}

@@ -6,7 +6,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { login } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { toast } from "sonner";
@@ -48,11 +55,13 @@ export default function LoginPage() {
             WAF Dashboard
           </h1>
         </div>
-        
+
         <Card className="animate-fade-in border-border/50">
           <CardHeader>
             <CardTitle>Welcome back</CardTitle>
-            <CardDescription>Sign in to your security dashboard</CardDescription>
+            <CardDescription>
+              Sign in to your security dashboard
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">

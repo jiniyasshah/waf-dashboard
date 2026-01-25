@@ -6,7 +6,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { register } from "@/lib/api";
 import { toast } from "sonner";
 import { Shield } from "lucide-react";
@@ -25,7 +32,9 @@ export default function RegisterPage() {
     try {
       const result = await register({ name, email, password });
       if (result) {
-        toast.success("Registration successful! Please sign in.");
+        toast.success(
+          "Account created! Please check your email to verify your account.",
+        );
         router.push("/login");
       }
     } catch (error) {
@@ -44,11 +53,13 @@ export default function RegisterPage() {
             WAF Dashboard
           </h1>
         </div>
-        
+
         <Card className="animate-fade-in border-border/50">
           <CardHeader>
             <CardTitle>Create an account</CardTitle>
-            <CardDescription>Get started with your security dashboard</CardDescription>
+            <CardDescription>
+              Get started with your security dashboard
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">

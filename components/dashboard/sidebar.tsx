@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
 import { logout as apiLogout } from "@/lib/api"; // Import the API logout function
+import { Dispatch, SetStateAction } from "react";
 import {
   Shield,
   LayoutDashboard,
@@ -25,11 +26,19 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  setOpen?: Dispatch<SetStateAction<boolean>>;
+}
+
+export function Sidebar({ setOpen }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   // Rename the store action to avoid confusion
   const { user, logout: storeLogout } = useAuthStore();
+
+  const handleLinkClick = () => {
+    if (setOpen) setOpen(false);
+  };
 
   const handleLogout = async () => {
     try {
@@ -52,7 +61,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-border/40 bg-[#050505] text-foreground">
+    <div className="flex h-screen w-64 shrink-0 flex-col border-r border-border/40 bg-[#050505] text-foreground">
       {/* Header */}
       <div className="flex h-16 items-center justify-between px-6 border-b border-border/40 bg-[#0a0a0a]/50 backdrop-blur-sm">
         <div className="flex items-center gap-3">
@@ -85,11 +94,12 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
                 isActive
                   ? "bg-primary/10 text-primary shadow-[0_0_0_1px_rgba(99,102,241,0.1)]"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
               <item.icon
@@ -97,7 +107,7 @@ export function Sidebar() {
                   "h-4 w-4 transition-colors",
                   isActive
                     ? "text-primary"
-                    : "text-muted-foreground group-hover:text-foreground"
+                    : "text-muted-foreground group-hover:text-foreground",
                 )}
               />
               {item.name}

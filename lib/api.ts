@@ -68,11 +68,11 @@ async function apiCall<T>(
       },
     });
 
-    // [NEW] GLOBAL SAFETY NET FOR 401 UNAUTHORIZED
-    // If any request fails because the session expired, kick the user out immediately.
     if (response.status === 401) {
-      // Avoid infinite loop: Don't redirect if we are just checking auth status
-      if (endpoint !== "/api/auth/check") {
+      const isLoginRequest = endpoint === "/api/auth/login";
+      const isAuthCheck = endpoint === "/api/auth/check";
+
+      if (!isAuthCheck && !isLoginRequest) {
         // 1. Clear Client State
         useAuthStore.getState().logout();
 
@@ -80,9 +80,11 @@ async function apiCall<T>(
         if (typeof window !== "undefined") {
           window.location.href = "/login";
         }
+        return null;
       }
-      // Return null so the calling function handles it as a failure
-      return null;
+
+      // If it IS a login request, we let it pass through so we can read the body below
+      if (isAuthCheck) return null;
     }
 
     if (response.status === 401 && endpoint === "/api/auth/check") {

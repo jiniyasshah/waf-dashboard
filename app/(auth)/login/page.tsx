@@ -36,11 +36,9 @@ export default function LoginPage() {
         setUser(result.user);
         toast.success("Login successful!");
         router.push("/");
-      } else {
-        toast.error("Invalid credentials");
       }
     } catch (error) {
-      toast.error("Something went wrong");
+      console.error("Login component error:", error);
     } finally {
       setIsLoading(false);
     }

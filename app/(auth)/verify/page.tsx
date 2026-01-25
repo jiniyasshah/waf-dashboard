@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react"; // [1] Import Suspense
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { verifyEmail } from "@/lib/api";
 import {
@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, Shield } from "lucide-react";
 import { toast } from "sonner";
 
-// [2] Create a Child Component for the Logic
 function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,7 +39,12 @@ function VerifyContent() {
         if (result) {
           setStatus("success");
           toast.success("Email verified successfully!");
-          setTimeout(() => router.push("/login"), 2000);
+
+          // [UX IMPROVEMENT] Wait 3 seconds so user sees the Green Checkmark
+          setTimeout(() => {
+            // Redirect with the flag so Login page knows to show a success banner
+            router.push("/login?verified=true");
+          }, 3000);
         } else {
           setStatus("error");
         }
@@ -54,7 +58,7 @@ function VerifyContent() {
   }, [token, router]);
 
   return (
-    <Card className="border-border/50 text-center animate-fade-in">
+    <Card className="border-border/50 text-center animate-fade-in shadow-lg w-full max-w-md">
       <CardHeader>
         <CardTitle>Account Verification</CardTitle>
         <CardDescription>
@@ -69,23 +73,17 @@ function VerifyContent() {
         )}
 
         {status === "success" && (
-          <>
-            <CheckCircle2 className="h-16 w-16 text-green-500 animate-in zoom-in" />
-            <p className="text-muted-foreground">
-              Your email has been verified. You can now access your dashboard.
-            </p>
-            <Button onClick={() => router.push("/login")} className="w-full">
-              Continue to Login
-            </Button>
-          </>
+          <div className="flex flex-col items-center space-y-4">
+            <CheckCircle2 className="h-20 w-20 text-green-500 animate-in zoom-in duration-300" />
+            <p className="text-muted-foreground">Redirecting to login...</p>
+          </div>
         )}
 
         {status === "error" && (
           <>
             <XCircle className="h-16 w-16 text-red-500 animate-in zoom-in" />
             <p className="text-muted-foreground">
-              Invalid or expired verification link. Please try registering
-              again.
+              Invalid or expired verification link.
             </p>
             <Button
               variant="outline"
@@ -101,11 +99,10 @@ function VerifyContent() {
   );
 }
 
-// [3] Export the Main Page wrapped in Suspense
 export default function VerifyPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md flex flex-col items-center">
         <div className="flex items-center justify-center mb-8">
           <Shield className="h-12 w-12 text-primary mr-3" />
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-cyan-300 bg-clip-text text-transparent">
@@ -113,15 +110,8 @@ export default function VerifyPage() {
           </h1>
         </div>
 
-        {/* This boundary catches the 'useSearchParams' requirement */}
         <Suspense
-          fallback={
-            <Card className="border-border/50 text-center">
-              <CardContent className="py-10">
-                <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto" />
-              </CardContent>
-            </Card>
-          }
+          fallback={<div className="text-muted-foreground">Loading...</div>}
         >
           <VerifyContent />
         </Suspense>

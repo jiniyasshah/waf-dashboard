@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     const isAuthPage =
-      pathname.startsWith("/login") || pathname.startsWith("/register");
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/register") ||
+      pathname.startsWith("/verify");
 
     if (isAuthenticated) {
       if (isAuthPage) {

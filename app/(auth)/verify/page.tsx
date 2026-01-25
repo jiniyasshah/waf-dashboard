@@ -22,8 +22,11 @@ function VerifyContent() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
+  // [NEW] Add countdown state
+  const [countdown, setCountdown] = useState(5);
   const processedToken = useRef<string | null>(null);
 
+  // 1. Verify Logic
   useEffect(() => {
     if (!token) {
       setStatus("error");
@@ -39,12 +42,6 @@ function VerifyContent() {
         if (result) {
           setStatus("success");
           toast.success("Email verified successfully!");
-
-          // [UX IMPROVEMENT] Wait 3 seconds so user sees the Green Checkmark
-          setTimeout(() => {
-            // Redirect with the flag so Login page knows to show a success banner
-            router.push("/login?verified=true");
-          }, 3000);
         } else {
           setStatus("error");
         }
@@ -55,7 +52,26 @@ function VerifyContent() {
     };
 
     verify();
-  }, [token, router]);
+  }, [token]);
+
+  // 2. Countdown Logic (Runs only when status is success)
+  useEffect(() => {
+    if (status === "success") {
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            router.push("/login?verified=true");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Cleanup timer if user leaves page
+      return () => clearInterval(timer);
+    }
+  }, [status, router]);
 
   return (
     <Card className="border-border/50 text-center animate-fade-in shadow-lg w-full max-w-md">
@@ -75,7 +91,24 @@ function VerifyContent() {
         {status === "success" && (
           <div className="flex flex-col items-center space-y-4">
             <CheckCircle2 className="h-20 w-20 text-green-500 animate-in zoom-in duration-300" />
-            <p className="text-muted-foreground">Redirecting to login...</p>
+            <div className="space-y-1">
+              <p className="text-lg font-medium">Verified!</p>
+              {/* [NEW] Visible Countdown */}
+              <p className="text-muted-foreground text-sm">
+                Redirecting to login in{" "}
+                <span className="font-bold text-foreground">{countdown}</span>{" "}
+                seconds...
+              </p>
+            </div>
+
+            {/* Manual Button in case they don't want to wait */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push("/login?verified=true")}
+            >
+              Go to Login Now
+            </Button>
           </div>
         )}
 

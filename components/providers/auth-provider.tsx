@@ -34,16 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     const isAuthPage =
-      pathname.startsWith("/login") ||
-      pathname.startsWith("/register") ||
-      pathname.startsWith("/verify");
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/verify" ||
+      pathname === "/reset-password";
+
+    const isPublicPage = pathname.startsWith("/verify-email");
 
     if (isAuthenticated) {
       if (isAuthPage) {
         router.push("/");
       }
     } else {
-      if (!isAuthPage) {
+      if (!isAuthPage && !isPublicPage) {
         router.push("/login");
       }
     }

@@ -14,20 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { getApiUrl, logout } from "@/lib/api";
+import {
+  getApiUrl,
+  logout,
+  updateEmail,
+  updatePassword,
+  forgotPassword,
+} from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { toast } from "sonner";
-import {
-  Save,
-  LogOut,
-  User,
-  Mail,
-  Lock,
-  Shield,
-  Globe,
-  Smartphone,
-  Key,
-} from "lucide-react";
+import { LogOut, User, Mail, Lock, Shield, Globe } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -35,7 +31,7 @@ export default function SettingsPage() {
   const [apiUrl, setApiUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Form States (Placeholders)
+  // Form States
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -52,22 +48,64 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  const handlePlaceholderSave = (action: string) => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success(`${action} updated successfully (Placeholder)`);
-      // Reset sensitive fields
-      setPasswords({ current: "", new: "", confirm: "" });
-    }, 1000);
-  };
-
   const handleLogout = async () => {
     await logout();
     logoutStore();
     toast.success("Logged out successfully");
     router.push("/login");
+  };
+
+  const handleUpdateProfile = async () => {
+    if (emailForm === user?.email) {
+      toast.info("No changes detected.");
+      return;
+    }
+
+    setIsLoading(true);
+    const res = await updateEmail(emailForm);
+    setIsLoading(false);
+
+    if (res) {
+      toast.success(
+        "A verification link has been sent to your new email address. Please check your inbox.",
+      );
+      // No logout here! The user stays logged in.
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!passwords.current || !passwords.new || !passwords.confirm) {
+      toast.error("Please fill in all password fields.");
+      return;
+    }
+    if (passwords.new !== passwords.confirm) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (passwords.new.length < 8) {
+      toast.error("Password must be at least 8 characters long.");
+      return;
+    }
+
+    setIsLoading(true);
+    const res = await updatePassword(passwords.current, passwords.new);
+    setIsLoading(false);
+
+    if (res) {
+      toast.success("Password updated successfully.");
+      setPasswords({ current: "", new: "", confirm: "" });
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!user?.email) return;
+    setIsLoading(true);
+    const res = await forgotPassword(user.email);
+    setIsLoading(false);
+
+    if (res) {
+      toast.success("A password reset link has been sent to your email.");
+    }
   };
 
   return (
@@ -108,6 +146,7 @@ export default function SettingsPage() {
                     onChange={(e) => setNameForm(e.target.value)}
                     className="pl-9"
                     placeholder="Your Name"
+                    disabled // Name update not supported by backend yet, disable gracefully
                   />
                 </div>
               </div>
@@ -127,10 +166,7 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t bg-muted/20 px-6 py-4">
-              <Button
-                onClick={() => handlePlaceholderSave("Profile")}
-                disabled={isLoading}
-              >
+              <Button onClick={handleUpdateProfile} disabled={isLoading}>
                 {isLoading ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>
@@ -185,16 +221,25 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t bg-muted/20 px-6 py-4 flex justify-between items-center">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground hidden md:block">
                 Password must be at least 8 characters long.
               </p>
-              <Button
-                variant="outline"
-                onClick={() => handlePlaceholderSave("Password")}
-                disabled={isLoading}
-              >
-                Update Password
-              </Button>
+              <div className="flex gap-2 w-full md:w-auto justify-end">
+                <Button
+                  variant="ghost"
+                  onClick={handleForgotPassword}
+                  disabled={isLoading}
+                >
+                  Forgot Password?
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleUpdatePassword}
+                  disabled={isLoading}
+                >
+                  Update Password
+                </Button>
+              </div>
             </CardFooter>
           </Card>
 
@@ -223,7 +268,7 @@ export default function SettingsPage() {
                     variant="secondary"
                     onClick={() =>
                       toast.info(
-                        "Configuration is managed via environment variables."
+                        "Configuration is managed via environment variables.",
                       )
                     }
                   >

@@ -376,3 +376,36 @@ export async function verifyEmail(token: string): Promise<any | null> {
     method: "GET",
   });
 }
+
+export async function updateEmail(newEmail: string): Promise<any | null> {
+  return apiCall("/api/auth/email/update", {
+    method: "POST",
+    body: JSON.stringify({ new_email: newEmail }),
+  });
+}
+
+export async function updatePassword(
+  oldPassword: string,
+  newPassword: string,
+): Promise<any | null> {
+  return apiCall("/api/auth/password/update", {
+    method: "POST",
+    body: JSON.stringify({
+      old_password: oldPassword,
+      new_password: newPassword,
+    }),
+  });
+}
+
+export async function verifyEmailChange(token: string): Promise<any | null> {
+  return apiCall(`/api/auth/email/verify-change?token=${token}`, {
+    method: "GET",
+  });
+}
+
+export async function forgotPassword(email: string): Promise<any | null> {
+  return apiCall("/api/auth/password/forget", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}

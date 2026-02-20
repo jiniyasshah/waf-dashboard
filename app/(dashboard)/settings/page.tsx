@@ -92,8 +92,13 @@ export default function SettingsPage() {
     setIsLoading(false);
 
     if (res) {
-      toast.success("Password updated successfully.");
+      toast.success(
+        "Password updated successfully. Please log in with your new password.",
+      );
       setPasswords({ current: "", new: "", confirm: "" });
+
+      // [NEW] Log out the current device so they can log back in with the new credentials
+      handleLogout();
     }
   };
 

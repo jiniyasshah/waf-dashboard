@@ -323,11 +323,32 @@ export async function getLogs(
   page: number = 1,
   limit: number = 20,
   domainId?: string,
+  action?: string,
+  ip?: string,
+  source?: string,
 ): Promise<PaginatedLogsResponse | null> {
-  const query = `?page=${page}&limit=${limit}${
-    domainId ? `&domain_id=${domainId}` : ""
-  }`;
-  return apiCall<PaginatedLogsResponse>(`/api/logs${query}`);
+  const params = new URLSearchParams();
+
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+
+  if (domainId && domainId !== "all") {
+    params.append("domain_id", domainId);
+  }
+  if (action && action !== "All") {
+    params.append("action", action);
+  }
+  if (ip) {
+    params.append("ip", ip);
+  }
+  // [UPDATED] Append source instead of attack_type
+  if (source && source !== "All") {
+    params.append("source", source);
+  }
+
+  return apiCall<PaginatedLogsResponse>(`/api/logs?${params.toString()}`, {
+    method: "GET",
+  });
 }
 
 // SSE for real-time logs

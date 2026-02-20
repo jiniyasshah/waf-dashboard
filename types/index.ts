@@ -139,32 +139,34 @@ export interface ToggleRuleRequest {
 
 export interface AttackLog {
   _id?: string;
+  user_id: string;
+  domain_id: string;
   timestamp: string;
-  ip: string;
+  ip: string; // The Go struct uses 'ip', NOT 'ip_address'
   request_path: string;
   reason: string;
-  action: "Blocked" | "Flagged" | "Monitor";
-  source: "Rule Engine" | "ML Engine" | "Hybrid";
+  source: string;
   tags: string[];
+  action: "Blocked" | "Flagged"; // Removed "Monitor"
   score: number;
   ml_confidence?: number;
   trigger_payload?: string;
-  domain_id?: string;
   request?: {
     method: string;
     url: string;
     headers: Record<string, string[]>;
     body: string;
-    proto?: string;
   };
 }
 
 export interface PaginatedLogsResponse {
-  data: AttackLog[];
-  pagination: {
-    current_page: number;
-    total_pages: number;
-    total_items: number;
-    per_page: number;
-  };
+  logs: AttackLog[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  // New backend-calculated stats
+  total_events: number;
+  blocked: number;
+  flagged: number;
 }

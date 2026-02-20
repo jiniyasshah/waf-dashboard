@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getLogs, getDomains } from "@/lib/api";
+import { getLogs, getDomains, createLogStream } from "@/lib/api";
 import { AttackLog, Domain } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -150,14 +150,33 @@ export default function LogsPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [domains, setDomains] = useState<Domain[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState<string>("all");
+
+  // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [limit, setLimit] = useState("20");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+
+  // True Backend Stats
+  const [totalEvents, setTotalEvents] = useState(0);
+  const [blockedCount, setBlockedCount] = useState(0);
+  const [flaggedCount, setFlaggedCount] = useState(0);
+
+  // Filters
+  const [selectedDomain, setSelectedDomain] = useState<string>("all");
+  const [actionFilter, setActionFilter] = useState("All");
+  const [sourceFilter, setSourceFilter] = useState("All");
+  const [ipSearch, setIpSearch] = useState("");
+  const [debouncedIp, setDebouncedIp] = useState("");
+
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+
+  const engineSources = ["Rule Engine", "ML Engine"];
+  // Debounce IP search to prevent backend spamming
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedIp(ipSearch), 500);
+    return () => clearTimeout(timer);
+  }, [ipSearch]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -171,12 +190,24 @@ export default function LogsPage() {
   const fetchLogs = useCallback(async () => {
     try {
       if (logs.length === 0) setIsLoading(true);
-      const domainParam = selectedDomain === "all" ? undefined : selectedDomain;
-      const response = await getLogs(page, parseInt(limit), domainParam);
+      const res = await getLogs(
+        page,
+        parseInt(limit),
+        selectedDomain,
+        actionFilter,
+        debouncedIp,
+        sourceFilter,
+      );
 
-      if (response && response.data) {
-        setLogs(response.data);
-        if (response.pagination) setTotalPages(response.pagination.total_pages);
+      if (res) {
+        // Strictly use the new flattened properties
+        setLogs(res.logs || []);
+        setTotalPages(res.total_pages || 1);
+
+        if (res.total_events !== undefined) setTotalEvents(res.total_events);
+        if (res.blocked !== undefined) setBlockedCount(res.blocked);
+        if (res.flagged !== undefined) setFlaggedCount(res.flagged);
+
         setLastUpdated(new Date());
       }
     } catch (error) {
@@ -184,8 +215,17 @@ export default function LogsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, limit, selectedDomain, logs.length]);
+  }, [
+    page,
+    limit,
+    selectedDomain,
+    actionFilter,
+    debouncedIp,
+    sourceFilter,
+    logs.length,
+  ]);
 
+  // Initial fetch and automatic refresh interval
   useEffect(() => {
     fetchLogs();
     const interval = setInterval(() => {
@@ -194,32 +234,55 @@ export default function LogsPage() {
     return () => clearInterval(interval);
   }, [fetchLogs, isPaused, page]);
 
-  const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !q ||
-        log.ip.toLowerCase().includes(q) ||
-        log.request_path.toLowerCase().includes(q) ||
-        log.reason.toLowerCase().includes(q);
-      const matchesStatus =
-        statusFilter === "all" ||
-        log.action.toLowerCase() === statusFilter.toLowerCase();
-      return matchesSearch && matchesStatus;
-    });
-  }, [logs, searchQuery, statusFilter]);
+  // Reset page to 1 when any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDomain, actionFilter, debouncedIp, sourceFilter, limit]);
 
-  const stats = useMemo(() => {
-    const total = logs.length;
-    const blocked = logs.filter((l) => l.action === "Blocked").length;
-    const flagged = logs.filter((l) => l.action === "Flagged").length;
+  useEffect(() => {
+    const eventSource = createLogStream((newLog) => {
+      if (isPaused) return;
+      if (selectedDomain !== "all" && newLog.domain_id !== selectedDomain)
+        return;
+      if (actionFilter !== "All" && newLog.action !== actionFilter) return;
+
+      if (sourceFilter !== "All" && newLog.source !== sourceFilter) return;
+
+      if (debouncedIp && !newLog.ip.includes(debouncedIp)) return;
+
+      if (page === 1) {
+        setLogs((prev) => [newLog, ...prev].slice(0, parseInt(limit)));
+      }
+
+      // Update global stats
+      setTotalEvents((prev) => prev + 1);
+      if (newLog.action === "Blocked") setBlockedCount((prev) => prev + 1);
+      if (newLog.action === "Flagged") setFlaggedCount((prev) => prev + 1);
+    });
+
+    return () => {
+      if (eventSource) eventSource.close();
+    };
+  }, [
+    selectedDomain,
+    actionFilter,
+    sourceFilter,
+    debouncedIp,
+    limit,
+    isPaused,
+    page,
+  ]);
+
+  // Calculate local "Top Threat" for the dashboard card based on current view
+  const topReason = useMemo(() => {
+    if (!logs.length) return "None";
     const reasons: Record<string, number> = {};
     logs.forEach((l) => {
       reasons[l.reason] = (reasons[l.reason] || 0) + 1;
     });
-    const topReason =
-      Object.entries(reasons).sort((a, b) => b[1] - a[1])[0]?.[0] || "None";
-    return { total, blocked, flagged, topReason };
+    return (
+      Object.entries(reasons).sort((a, b) => b[1] - a[1])[0]?.[0] || "None"
+    );
   }, [logs]);
 
   const toggleRow = (id: string) =>
@@ -311,26 +374,26 @@ export default function LogsPage() {
         </div>
       </div>
 
-      {/* STATS OVERVIEW - Responsive Grid */}
+      {/* STATS OVERVIEW - Responsive Grid (Now uses backend global stats) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          title="Events"
-          value={stats.total}
+          title="Total Events"
+          value={totalEvents || logs.length}
           icon={<FileCode className="h-4 w-4 text-primary" />}
         />
         <StatsCard
-          title="Blocked"
-          value={stats.blocked}
+          title="Blocked Attacks"
+          value={blockedCount}
           icon={<ShieldAlert className="h-4 w-4 text-rose-500" />}
         />
         <StatsCard
-          title="Flagged"
-          value={stats.flagged}
+          title="Flagged Traffic"
+          value={flaggedCount}
           icon={<Shield className="h-4 w-4 text-yellow-500" />}
         />
         <StatsCard
-          title="Top Threat"
-          value={stats.topReason}
+          title="Top Threat (Current View)"
+          value={topReason}
           icon={<Activity className="h-4 w-4 text-muted-foreground" />}
           textSmall
         />
@@ -342,21 +405,15 @@ export default function LogsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search IP, Path, User-Agent..."
+              placeholder="Search by IP address..."
               className="pl-9 bg-background/50 w-full"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={ipSearch}
+              onChange={(e) => setIpSearch(e.target.value)}
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={selectedDomain}
-              onValueChange={(v) => {
-                setSelectedDomain(v);
-                setPage(1);
-              }}
-            >
+            <Select value={selectedDomain} onValueChange={setSelectedDomain}>
               <SelectTrigger className="w-full sm:w-[180px] bg-background/50">
                 <div className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
@@ -373,28 +430,35 @@ export default function LogsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={actionFilter} onValueChange={setActionFilter}>
               <SelectTrigger className="w-[140px] bg-background/50">
                 <div className="flex items-center gap-2">
                   <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder="Action" />
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Events</SelectItem>
-                <SelectItem value="blocked">Blocked</SelectItem>
-                <SelectItem value="flagged">Flagged</SelectItem>
-                <SelectItem value="monitor">Monitor</SelectItem>
+                <SelectItem value="All">All Actions</SelectItem>
+                <SelectItem value="Blocked">Blocked</SelectItem>
+                <SelectItem value="Flagged">Flagged</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select
-              value={limit}
-              onValueChange={(v) => {
-                setLimit(v);
-                setPage(1);
-              }}
-            >
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[180px] bg-background/50">
+                <SelectValue placeholder="Detection Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Sources</SelectItem>
+                {engineSources.map((src) => (
+                  <SelectItem key={src} value={src}>
+                    {src}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={limit} onValueChange={setLimit}>
               <SelectTrigger className="w-[100px] bg-background/50">
                 <SelectValue placeholder="Limit" />
               </SelectTrigger>
@@ -427,17 +491,19 @@ export default function LogsPage() {
               <TableBody>
                 {isLoading && logs.length === 0 ? (
                   <TableSkeleton />
-                ) : filteredLogs.length === 0 ? (
+                ) : logs.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="p-0 max-w-0">
-                      <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
+                      <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in-95 duration-300 py-12">
                         <XCircle className="h-8 w-8 opacity-20" />
-                        <p>No matching events found</p>
+                        <p className="text-muted-foreground">
+                          No matching events found
+                        </p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredLogs.map((log, i) => {
+                  logs.map((log, i) => {
                     const rowId = log._id || String(i);
                     const isExpanded = expandedRowId === rowId;
 
@@ -645,13 +711,13 @@ export default function LogsPage() {
             </Table>
           </div>
 
-          {/* PAGINATION - Mobile friendly stack */}
+          {/* PAGINATION - Server Side */}
           <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-border bg-muted/20 gap-4">
             <div className="text-[10px] md:text-xs text-muted-foreground">
               Showing logs {(page - 1) * parseInt(limit) + 1} to{" "}
               {Math.min(
                 page * parseInt(limit),
-                page * parseInt(limit) + filteredLogs.length,
+                page * parseInt(limit) + logs.length,
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -665,13 +731,13 @@ export default function LogsPage() {
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
               </Button>
               <div className="text-[10px] md:text-xs font-medium px-2 min-w-[80px] text-center">
-                Page {page} of {totalPages}
+                Page {page} of {totalPages || 1}
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page >= totalPages || isLoading}
+                disabled={page >= totalPages || totalPages === 0 || isLoading}
                 className="h-8 px-3 text-xs"
               >
                 Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -706,6 +772,7 @@ function StatsCard({ title, value, icon, textSmall }: any) {
   );
 }
 
+// "Monitor" check removed entirely
 function StatusBadge({ action }: { action: string }) {
   let className = "text-muted-foreground bg-muted";
 
@@ -713,8 +780,6 @@ function StatusBadge({ action }: { action: string }) {
     className = "text-rose-500 bg-rose-500/10 border-rose-500/20";
   } else if (action === "Flagged") {
     className = "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
-  } else if (action === "Monitor") {
-    className = "text-blue-500 bg-blue-500/10 border-blue-500/20";
   }
 
   return (

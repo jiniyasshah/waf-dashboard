@@ -59,7 +59,7 @@ function useSmartPolling(intervalMs: number = 5000) {
       ]);
 
       if (statusRes) setStatus(statusRes);
-      if (logsRes?.data) setRecentLogs(logsRes.data);
+      if (logsRes?.logs) setRecentLogs(logsRes.logs);
 
       if (domainsRes) {
         setDomains(domainsRes);
@@ -73,7 +73,7 @@ function useSmartPolling(intervalMs: number = 5000) {
               (d.stats?.blocked_requests || 0) +
               (d.stats?.flagged_requests || 0),
           }),
-          { total: 0, threats: 0 }
+          { total: 0, threats: 0 },
         );
 
         // Calculate Deltas (Traffic in the last 5s interval)
@@ -84,11 +84,11 @@ function useSmartPolling(intervalMs: number = 5000) {
         if (!isFirstLoad.current) {
           deltaTotal = Math.max(
             0,
-            currentStats.total - prevStats.current.total
+            currentStats.total - prevStats.current.total,
           );
           deltaThreats = Math.max(
             0,
-            currentStats.threats - prevStats.current.threats
+            currentStats.threats - prevStats.current.threats,
           );
         }
 
@@ -169,7 +169,7 @@ export default function DashboardPage() {
       blocked: acc.blocked + (domain.stats?.blocked_requests || 0),
       flagged: acc.flagged + (domain.stats?.flagged_requests || 0),
     }),
-    { totalRequests: 0, blocked: 0, flagged: 0 }
+    { totalRequests: 0, blocked: 0, flagged: 0 },
   );
 
   return (

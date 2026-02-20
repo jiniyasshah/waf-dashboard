@@ -404,7 +404,7 @@ export async function verifyEmailChange(token: string): Promise<any | null> {
 }
 
 export async function forgotPassword(email: string): Promise<any | null> {
-  return apiCall("/api/auth/password/forget", {
+  return apiCall("/api/auth/password/forgot", {
     method: "POST",
     body: JSON.stringify({ email }),
   });

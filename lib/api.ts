@@ -409,3 +409,16 @@ export async function forgotPassword(email: string): Promise<any | null> {
     body: JSON.stringify({ email }),
   });
 }
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<any | null> {
+  return apiCall("/api/auth/password/reset", {
+    method: "POST",
+    body: JSON.stringify({
+      token: token,
+      new_password: newPassword,
+    }),
+  });
+}

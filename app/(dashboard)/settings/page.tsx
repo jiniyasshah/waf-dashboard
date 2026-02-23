@@ -121,8 +121,7 @@ export default function SettingsPage() {
           Account Settings
         </h1>
         <p className="text-muted-foreground">
-          Manage your profile details, security preferences, and system
-          configuration.
+          Manage your profile details and security preferences.
         </p>
       </div>
 
@@ -247,49 +246,6 @@ export default function SettingsPage() {
               </div>
             </CardFooter>
           </Card>
-
-          {/* 3. SYSTEM CONFIG */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                <CardTitle>System Configuration</CardTitle>
-              </div>
-              <CardDescription>
-                Connection settings for the backend API.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="api-url">Backend API URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="api-url"
-                    value={apiUrl}
-                    readOnly
-                    className="bg-muted font-mono text-sm"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      toast.info(
-                        "Configuration is managed via environment variables.",
-                      )
-                    }
-                  >
-                    Check Status
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  This value is set via{" "}
-                  <code className="bg-muted px-1 rounded">
-                    NEXT_PUBLIC_API_URL
-                  </code>
-                  .
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* RIGHT COLUMN: Sidebar / Info */}
@@ -313,11 +269,12 @@ export default function SettingsPage() {
               </div>
               <Separator />
               <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground flex items-center gap-2">
-                    <Shield className="h-3 w-3" /> Role
+                    <Shield className="h-3 w-3" />
+                    <span className="text-muted-foregroundd">Role:</span>
                   </span>
-                  <span className="font-medium">Administrator</span>
+                  <span className="text-muted-foreground">Administrator</span>
                 </div>
               </div>
             </CardContent>

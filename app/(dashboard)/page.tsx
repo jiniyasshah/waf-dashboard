@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getSystemStatus, getLogs, getDomains } from "@/lib/api";
+import {
+  getSystemStatus,
+  getLogs,
+  getDomains,
+  getTrafficHistory,
+} from "@/lib/api";
 import { SystemStatus, AttackLog, Domain } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -15,8 +20,6 @@ import {
   Cpu,
   Zap,
   TrendingUp,
-  Radio,
-  PauseCircle,
 } from "lucide-react";
 import {
   AreaChart,
@@ -30,87 +33,35 @@ import {
 } from "recharts";
 
 // --- TYPES ---
-interface TrafficPoint {
+export interface TrafficPoint {
   time: string;
   total: number;
   threats: number;
 }
 
-// --- SMART POLLING HOOK ---
+// --- SMART POLLING HOOK (Server-Driven) ---
 function useSmartPolling(intervalMs: number = 5000) {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [recentLogs, setRecentLogs] = useState<AttackLog[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [trafficHistory, setTrafficHistory] = useState<TrafficPoint[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
-  // Graph State
-  const [trafficHistory, setTrafficHistory] = useState<TrafficPoint[]>([]);
-  // Refs to store previous totals for delta calculation
-  const prevStats = useRef({ total: 0, threats: 0 });
-  const isFirstLoad = useRef(true);
-
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, logsRes, domainsRes] = await Promise.all([
+      // Fetch all data concurrently, including the new true history
+      const [statusRes, logsRes, domainsRes, historyRes] = await Promise.all([
         getSystemStatus(),
         getLogs(1, 10),
         getDomains(),
+        getTrafficHistory(),
       ]);
 
       if (statusRes) setStatus(statusRes);
       if (logsRes?.logs) setRecentLogs(logsRes.logs);
-
-      if (domainsRes) {
-        setDomains(domainsRes);
-
-        // --- LIVE GRAPH CALCULATION ---
-        const currentStats = domainsRes.reduce(
-          (acc, d) => ({
-            total: acc.total + (d.stats?.total_requests || 0),
-            threats:
-              acc.threats +
-              (d.stats?.blocked_requests || 0) +
-              (d.stats?.flagged_requests || 0),
-          }),
-          { total: 0, threats: 0 },
-        );
-
-        // Calculate Deltas (Traffic in the last 5s interval)
-        // If it's the first load, show 0 to prevent a huge spike from 0 -> Total
-        let deltaTotal = 0;
-        let deltaThreats = 0;
-
-        if (!isFirstLoad.current) {
-          deltaTotal = Math.max(
-            0,
-            currentStats.total - prevStats.current.total,
-          );
-          deltaThreats = Math.max(
-            0,
-            currentStats.threats - prevStats.current.threats,
-          );
-        }
-
-        // Update Refs
-        prevStats.current = currentStats;
-        isFirstLoad.current = false;
-
-        // Add to History (Keep last 20 points)
-        const now = new Date();
-        const timeLabel = `${now.getHours()}:${now
-          .getMinutes()
-          .toString()
-          .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
-
-        setTrafficHistory((prev) => {
-          const newHistory = [
-            ...prev,
-            { time: timeLabel, total: deltaTotal, threats: deltaThreats },
-          ];
-          return newHistory.slice(-20); // Keep graph clean (last 20 intervals)
-        });
-      }
+      if (domainsRes) setDomains(domainsRes);
+      if (historyRes) setTrafficHistory(historyRes);
 
       setLastRefreshed(new Date());
     } catch (error) {
@@ -286,7 +237,7 @@ export default function DashboardPage() {
                 fillOpacity={1}
                 fill="url(#colorTotal)"
                 animationDuration={1000}
-                isAnimationActive={false} // Smoother updates for real-time
+                isAnimationActive={false}
               />
 
               {/* Threats Area (Layered on top) */}

@@ -55,9 +55,7 @@ async function apiCall<T>(
     }
     return null;
   }
-
   const { suppressErrorToast, ...fetchOptions } = options;
-
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...fetchOptions,
@@ -67,39 +65,27 @@ async function apiCall<T>(
         ...fetchOptions.headers,
       },
     });
-
     if (response.status === 401) {
       const isLoginRequest = endpoint === "/api/auth/login";
       const isAuthCheck = endpoint === "/api/auth/check";
-
       if (!isAuthCheck && !isLoginRequest) {
-        // 1. Clear Client State
         useAuthStore.getState().logout();
-
-        // 2. Force Redirect to Login
         if (typeof window !== "undefined") {
           window.location.href = "/login";
         }
         return null;
       }
-
-      // If it IS a login request, we let it pass through so we can read the body below
       if (isAuthCheck) return null;
     }
-
     if (response.status === 401 && endpoint === "/api/auth/check") {
       return null;
     }
-
     let rawData: any = null;
     const contentType = response.headers.get("content-type");
     let textBody = "";
-
-    // 1. Attempt to read and parse the body
     try {
       textBody = await response.text();
       const trimmed = textBody.trim();
-
       if (
         textBody &&
         (contentType?.includes("application/json") ||
@@ -108,47 +94,29 @@ async function apiCall<T>(
       ) {
         rawData = JSON.parse(textBody);
       }
-    } catch {
-      // JSON parse failed
-    }
-
-    // 2. Handle HTTP Errors (Non-2xx Status)
+    } catch {}
     if (!response.ok) {
       let errorMessage = `HTTP Error ${response.status}`;
-
       if (rawData && typeof rawData === "object") {
-        // Backend now returns { status: "error", message: "..." }
         errorMessage =
           rawData.message || rawData.error || rawData.details || errorMessage;
       } else if (textBody) {
         errorMessage = textBody.trim();
       }
-
       if (!suppressErrorToast) {
         toast.error(errorMessage);
       }
-
       return null;
     }
-
-    // 3. Handle Success & Unwrap Envelope
-    // Check if it matches the new StandardResponse format: { status: "success", data: ... }
     if (rawData && rawData.status === "success") {
-      // Case A: Response has 'data' payload (e.g. WriteSuccess)
       if (rawData.data !== undefined) {
         return rawData.data as T;
       }
-      // Case B: Response has only 'message' (e.g. WriteMessage)
-      // We return an object containing the message to satisfy truthy checks in UI
       if (rawData.message) {
         return { message: rawData.message } as unknown as T;
       }
-      // Case C: Empty success (unlikely but possible)
       return {} as T;
     }
-
-    // 4. Fallback for endpoints NOT using the wrapper (if any legacy ones remain)
-    // or if the response structure didn't match the expected envelope.
     return rawData as T;
   } catch (error) {
     console.error(`API call failed for ${endpoint}:`, error);
@@ -305,6 +273,16 @@ export async function deleteCustomRule(ruleId: string): Promise<any | null> {
   return apiCall(`/api/rules/custom/delete?id=${ruleId}`, {
     method: "DELETE",
   });
+}
+
+export interface TrafficPoint {
+  time: string;
+  total: number;
+  threats: number;
+}
+
+export async function getTrafficHistory(): Promise<TrafficPoint[] | null> {
+  return apiCall<TrafficPoint[]>("/api/system/traffic-history");
 }
 
 // [FIXED] Manually map 'id' to 'rule_id' to match backend expectation

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
-import { logout as apiLogout } from "@/lib/api"; // Import the API logout function
+import { logout as apiLogout } from "@/lib/api";
 import { Dispatch, SetStateAction } from "react";
 import {
   Shield,
@@ -14,6 +14,7 @@ import {
   ScrollText,
   Settings,
   LogOut,
+  HelpCircle, // [NEW] Imported the Help icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Firewall Rules", href: "/rules", icon: FileText },
   { name: "Traffic Logs", href: "/logs", icon: ScrollText },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Help & Docs", href: "/help", icon: HelpCircle }, // [NEW] Added to navigation
 ];
 
 interface SidebarProps {
@@ -33,7 +35,6 @@ interface SidebarProps {
 export function Sidebar({ setOpen }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  // Rename the store action to avoid confusion
   const { user, logout: storeLogout } = useAuthStore();
 
   const handleLinkClick = () => {
@@ -42,19 +43,12 @@ export function Sidebar({ setOpen }: SidebarProps) {
 
   const handleLogout = async () => {
     try {
-      // 1. Call Backend to clear cookies
       await apiLogout();
-
-      // 2. Clear Client State
       storeLogout();
-
       toast.success("Signed out successfully");
-
-      // 3. Redirect to Login
       router.push("/login");
     } catch (error) {
       console.error("Logout failed:", error);
-      // Force redirect even if API fails
       storeLogout();
       router.push("/login");
     }
@@ -138,7 +132,7 @@ export function Sidebar({ setOpen }: SidebarProps) {
         <Button
           variant="outline"
           className="w-full justify-start text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20 h-8"
-          onClick={handleLogout} // Updated Handler
+          onClick={handleLogout}
         >
           <LogOut className="mr-2 h-3.5 w-3.5" />
           Sign Out

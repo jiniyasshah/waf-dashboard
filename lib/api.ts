@@ -269,10 +269,14 @@ export async function addCustomRule(
   });
 }
 
-export async function deleteCustomRule(ruleId: string): Promise<any | null> {
-  return apiCall(`/api/rules/custom/delete?id=${ruleId}`, {
-    method: "DELETE",
-  });
+export async function deleteCustomRule(ruleId: string): Promise<boolean> {
+  const res = await apiCall<{ message: string }>(
+    `/api/rules/custom/delete?id=${ruleId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  return !!res;
 }
 
 export interface TrafficPoint {

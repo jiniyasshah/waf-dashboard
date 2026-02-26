@@ -19,11 +19,20 @@ import {
   getCustomRules,
   addCustomRule,
   toggleRule,
+  deleteCustomRule, // [NEW] Added Delete API
   getDomains,
 } from "@/lib/api";
 import { Rule, RuleCondition, Domain } from "@/types";
 import { toast } from "sonner";
-import { Plus, Shield, Layout, X, Info } from "lucide-react";
+import {
+  Plus,
+  Shield,
+  Layout,
+  X,
+  Info,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react"; // [NEW] Added Icons
 
 export default function RulesPage() {
   const [activeTab, setActiveTab] = useState<"global" | "custom">("global");
@@ -34,6 +43,10 @@ export default function RulesPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [isCustomField, setIsCustomField] = useState(false);
+
+  // [NEW] State for custom delete popup
+  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [newRule, setNewRule] = useState({
     name: "",
@@ -87,6 +100,26 @@ export default function RulesPage() {
     if (result) {
       toast.success("Rule status updated");
       fetchRules();
+    }
+  };
+
+  // [NEW] Execute Rule Deletion
+  const confirmDelete = async () => {
+    if (!ruleToDelete) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteCustomRule(ruleToDelete);
+      if (result) {
+        toast.success("Rule deleted successfully");
+        fetchRules();
+      } else {
+        toast.error("Failed to delete rule");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting the rule.");
+    } finally {
+      setIsDeleting(false);
+      setRuleToDelete(null);
     }
   };
 
@@ -151,6 +184,41 @@ export default function RulesPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 overflow-x-hidden">
+      {/* [NEW] DELETE CONFIRMATION MODAL */}
+      {ruleToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md border-border/40 shadow-2xl animate-in zoom-in-95 duration-200 bg-[#121212]">
+            <CardHeader className="gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 border border-rose-500/20 mb-2">
+                <AlertTriangle className="h-6 w-6 text-rose-500" />
+              </div>
+              <CardTitle className="text-xl">Delete Custom Rule?</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete this firewall rule? This action
+                cannot be undone and the Gateway will immediately stop analyzing
+                traffic against this condition.
+              </p>
+            </CardHeader>
+            <CardContent className="flex gap-3 justify-end mt-4">
+              <Button
+                variant="ghost"
+                onClick={() => setRuleToDelete(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete Rule"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
@@ -241,7 +309,7 @@ export default function RulesPage() {
                   <Input
                     id="name"
                     placeholder="e.g., Block SQL Injection"
-                    className="bg-muted/30"
+                    className="bg-muted/30 border-border/40"
                     value={newRule.name}
                     onChange={(e) =>
                       setNewRule({ ...newRule, name: e.target.value })
@@ -257,7 +325,7 @@ export default function RulesPage() {
                       {isCustomField ? (
                         <Input
                           placeholder="request.headers.X-Auth"
-                          className="bg-muted/30"
+                          className="bg-muted/30 border-border/40"
                           value={newRule.field}
                           onChange={(e) =>
                             setNewRule({ ...newRule, field: e.target.value })
@@ -265,30 +333,37 @@ export default function RulesPage() {
                           autoFocus
                         />
                       ) : (
-                        <select
-                          className="flex h-10 w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                        // [FIXED] Replaced native <select> with Shadcn <Select>
+                        <Select
                           value={newRule.field}
-                          onChange={(e) => {
-                            if (e.target.value === "custom") {
+                          onValueChange={(val) => {
+                            if (val === "custom") {
                               setIsCustomField(true);
                               setNewRule({ ...newRule, field: "" });
                             } else {
-                              setNewRule({ ...newRule, field: e.target.value });
+                              setNewRule({ ...newRule, field: val });
                             }
                           }}
                         >
-                          <option value="path">Path</option>
-                          <option value="query">Query</option>
-                          <option value="body">Body</option>
-                          <option value="ip">IP Address</option>
-                          <option value="request.headers.User-Agent">
-                            User-Agent
-                          </option>
-                          <option value="request.combined">
-                            Entire Request
-                          </option>
-                          <option value="custom">Custom Field...</option>
-                        </select>
+                          <SelectTrigger className="w-full bg-muted/30 border-border/40 h-10">
+                            <SelectValue placeholder="Select Field" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="path">Path</SelectItem>
+                            <SelectItem value="query">Query</SelectItem>
+                            <SelectItem value="body">Body</SelectItem>
+                            <SelectItem value="ip">IP Address</SelectItem>
+                            <SelectItem value="request.headers.User-Agent">
+                              User-Agent
+                            </SelectItem>
+                            <SelectItem value="request.combined">
+                              Entire Request
+                            </SelectItem>
+                            <SelectItem value="custom">
+                              Custom Field...
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       )}
                       {isCustomField && (
                         <Button
@@ -308,27 +383,29 @@ export default function RulesPage() {
 
                   <div className="space-y-2">
                     <Label>Operator</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                    {/* [FIXED] Replaced native <select> with Shadcn <Select> */}
+                    <Select
                       value={newRule.operator}
-                      onChange={(e) =>
-                        setNewRule({
-                          ...newRule,
-                          operator: e.target.value as any,
-                        })
+                      onValueChange={(val: any) =>
+                        setNewRule({ ...newRule, operator: val })
                       }
                     >
-                      <option value="contains">Contains</option>
-                      <option value="regex">Regex</option>
-                      <option value="equals">Equals</option>
-                    </select>
+                      <SelectTrigger className="w-full bg-muted/30 border-border/40 h-10">
+                        <SelectValue placeholder="Select Operator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contains">Contains</SelectItem>
+                        <SelectItem value="regex">Regex</SelectItem>
+                        <SelectItem value="equals">Equals</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Value</Label>
                     <Input
                       placeholder="pattern..."
-                      className="bg-muted/30"
+                      className="bg-muted/30 border-border/40"
                       value={newRule.value}
                       onChange={(e) =>
                         setNewRule({ ...newRule, value: e.target.value })
@@ -341,19 +418,21 @@ export default function RulesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Action</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                    {/* [FIXED] Replaced native <select> with Shadcn <Select> */}
+                    <Select
                       value={newRule.action}
-                      onChange={(e) =>
-                        setNewRule({
-                          ...newRule,
-                          action: e.target.value as any,
-                        })
+                      onValueChange={(val: any) =>
+                        setNewRule({ ...newRule, action: val })
                       }
                     >
-                      <option value="score">Add Score</option>
-                      <option value="block">Hard Block</option>
-                    </select>
+                      <SelectTrigger className="w-full bg-muted/30 border-border/40 h-10">
+                        <SelectValue placeholder="Select Action" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="score">Add Score</SelectItem>
+                        <SelectItem value="block">Hard Block</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   {newRule.action === "score" && (
                     <div className="space-y-2">
@@ -362,7 +441,7 @@ export default function RulesPage() {
                         type="number"
                         min="1"
                         max="100"
-                        className="bg-muted/30"
+                        className="bg-muted/30 border-border/40"
                         value={newRule.score}
                         onChange={(e) =>
                           setNewRule({
@@ -380,7 +459,7 @@ export default function RulesPage() {
                   <Label>Tags (comma-separated)</Label>
                   <Input
                     placeholder="sql-injection, high-priority"
-                    className="bg-muted/30"
+                    className="bg-muted/30 border-border/40"
                     value={newRule.tags}
                     onChange={(e) =>
                       setNewRule({ ...newRule, tags: e.target.value })
@@ -426,8 +505,6 @@ export default function RulesPage() {
               <CardContent className="p-5 md:p-6">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="space-y-4 flex-1 min-w-0">
-                    {" "}
-                    {/* Add min-w-0 to allow children to shrink */}
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                         <Shield className="h-4 w-4 text-primary" />
@@ -446,8 +523,6 @@ export default function RulesPage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
                       <div className="space-y-1 min-w-0">
-                        {" "}
-                        {/* min-w-0 is key for flex containers */}
                         <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-1">
                           <Info className="h-3 w-3" /> Condition
                         </span>
@@ -519,6 +594,18 @@ export default function RulesPage() {
                       }
                       className="data-[state=checked]:bg-emerald-500"
                     />
+
+                    {/* [NEW] Delete Button Only visible on Custom Rules */}
+                    {activeTab === "custom" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 ml-2 transition-colors"
+                        onClick={() => setRuleToDelete(rule.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -76,30 +76,50 @@ export default function RulesPage() {
     }
   }, [selectedDomain]);
 
-  const fetchRules = async () => {
-    setIsLoading(true);
+  const fetchRules = async (isBackgroundUpdate = false) => {
+    // Only show the skeleton loader if it's NOT a background update
+    if (!isBackgroundUpdate) setIsLoading(true);
+
     const [global, custom] = await Promise.all([
       getGlobalRules(selectedDomain),
       getCustomRules(selectedDomain),
     ]);
+
     if (global) setGlobalRules(global);
     if (custom) setCustomRules(custom);
-    setIsLoading(false);
-  };
 
+    if (!isBackgroundUpdate) setIsLoading(false);
+  };
   const handleToggleRule = async (ruleId: string, currentEnabled: boolean) => {
     if (!selectedDomain) {
       toast.error("Please select a domain first");
       return;
     }
+
+    // Optimistic UI Update (Makes the switch feel instantly responsive)
+    setGlobalRules((prev) =>
+      prev.map((r) =>
+        r.id === ruleId ? { ...r, enabled: !currentEnabled } : r,
+      ),
+    );
+    setCustomRules((prev) =>
+      prev.map((r) =>
+        r.id === ruleId ? { ...r, enabled: !currentEnabled } : r,
+      ),
+    );
+
     const result = await toggleRule({
       id: ruleId,
       enabled: !currentEnabled,
       domain_id: selectedDomain,
     });
+
     if (result) {
       toast.success("Rule status updated");
-      fetchRules();
+      fetchRules(true); // <-- Pass true to fetch silently in the background!
+    } else {
+      // Revert if API fails
+      fetchRules(true);
     }
   };
 
@@ -111,7 +131,7 @@ export default function RulesPage() {
       const result = await deleteCustomRule(ruleToDelete);
       if (result) {
         toast.success("Rule deleted successfully");
-        fetchRules();
+        fetchRules(true);
       } else {
         toast.error("Failed to delete rule");
       }
@@ -160,7 +180,7 @@ export default function RulesPage() {
         tags: "",
       });
       setIsCustomField(false);
-      fetchRules();
+      fetchRules(true);
     }
   };
 

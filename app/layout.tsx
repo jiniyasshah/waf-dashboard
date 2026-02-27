@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/providers/auth-provider";
 
 export const metadata: Metadata = {
-  title: "WAF Dashboard - Security Operations Center",
+  title: "Dashboard | Minishield",
   description: "ML-powered Web Application Firewall Dashboard",
 };
 
